@@ -13,7 +13,7 @@ from torchsummary import summary
 img = Image.open('./cat.jpg')
 
 
-transform = Compose([Resize((224,224)), ToTensor()])
+transform = Compose([Resize((128,128)), ToTensor()])
 x = transform(img)
 img = np.array(x)
 x = x.unsqueeze(0)
@@ -27,7 +27,7 @@ print(x.shape)
 
 
 class PatchEmbedding(nn.Module):
-    def __init__(self, in_channels=3, patch_size=16, emb_size=768, img_size=224):
+    def __init__(self, in_channels=3, patch_size=16, emb_size=768, img_size=128):
         self.patch_size = patch_size
         super().__init__()
         self.projection = nn.Sequential(
@@ -40,6 +40,7 @@ class PatchEmbedding(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         b,_,_,_ = x.shape
+        print(x.shape)
         x = self.projection(x)
         cls_tokens = repeat(self.cls_token, '() n e -> b n e', b=b)
         x = torch.cat([cls_tokens, x],dim=1)
