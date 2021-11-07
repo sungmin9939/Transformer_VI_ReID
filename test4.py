@@ -3,6 +3,7 @@ from torchvision import transforms
 import torch
 import numpy as np
 from PIL import Image
+from torch.utils.data import DataLoader
 
 from models.transformers import PatchEmbedding
 transform_train_list = [
@@ -14,7 +15,7 @@ transform_train_list = [
 transform = transforms.Compose(transform_train_list)
 dataset = RegDBData('./datasets/RegDB_01', transform)
 
-dataloader = torch.utils.data.DataLoader(dataset, batch_size=8, shuffle=True)
+dataloader = DataLoader(dataset, batch_size=8, shuffle=True)
 v, t, l = next(iter(dataloader))
 print(v.shape)
 print(l)

@@ -9,6 +9,7 @@ from torchvision.transforms import Compose, Resize,ToTensor
 from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange, Reduce
 from torchsummary import summary
+from loss import OriTripletLoss
 
 
 class MLP(nn.Module):
@@ -247,24 +248,30 @@ class Discriminator(nn.Module):
         return x
 
 class Trans_VIReID(nn.Module):
-    def __init__(self, in_channel, patch_size, emb_size, img_size, mlp_ratio, drop_rate, num_head, depth, depth1, depth2, depth3, depth4, depth5, initial_size, num_classes):
+    def __init__(self, opt):
         super().__init__()
         
-        self.in_channel = in_channel
-        self.patch_size = patch_size
-        self.emb_size = emb_size
-        self.img_size = img_size
-        self.mlp_ratio = mlp_ratio
-        self.drop_rate = drop_rate
-        self.num_head = num_head
-        self.depth = depth
-        self.depth1 = depth1
-        self.depth2 = depth2
-        self.depth3 = depth3
-        self.depth4 = depth4
-        self.depth5 = depth5
-        self.initial_size = initial_size
-        self.num_classes = num_classes
+        self.in_channel = opt.in_channel
+        self.patch_size = opt.patch_size
+        self.emb_size = opt.emb_size
+        self.img_size = opt.img_size
+        self.mlp_ratio = opt.mlp_ratio
+        self.drop_rate = opt.drop_rate
+        self.num_head = opt.num_head
+        self.depth = opt.depth
+        self.depth1 = opt.depth1
+        self.depth2 = opt.depth2
+        self.depth3 = opt.depth3
+        self.depth4 = opt.depth4
+        self.depth5 = opt.depth5
+        self.initial_size = opt.initial_size
+        self.num_classes = opt.num_classes
+        self.is_train = opt.train
+        if self.is_train:
+            self.triplet = OriTripletLoss(opt.batch_size*16, opt.margin)
+            self.ce_loss = nn.CrossEntropyLoss()
+
+
 
         #loss functions
         self.l1 = nn.L1Loss()
@@ -287,11 +294,13 @@ class Trans_VIReID(nn.Module):
 
     
 
-    def forward(self, x_rgb, x_ir, train=False):
+    def forward(self, x_rgb, x_ir, label=None):
 
         #embbeding images to patches    
         patch_x_rgb,x_rgb = self.patch_emb(x_rgb)
         patch_x_ir, x_ir = self.patch_emb(x_ir)
+
+        
 
         #extract discriminative features from transformers
         disc_rgb = self.disc_encoder_rgb(patch_x_rgb)
@@ -301,7 +310,7 @@ class Trans_VIReID(nn.Module):
         emb_i = self.classifier(disc_ir.mean(dim=1))
 
         #(FOR TRAINING)
-        if train:
+        if self.is_train:
             #extract excluded features from transformers
             excl_rgb = self.excl_encoder_rgb(patch_x_rgb)
             excl_ir = self.excl_encoder_ir(patch_x_ir)
@@ -345,9 +354,16 @@ class Trans_VIReID(nn.Module):
             code_recon = recon_code_r + recon_code_i
 
             #triplet loss
+            triplet_loss, _ = self.triplet(torch.cat((emb_r, emb_i), dim=0), torch.cat((label, label)))
+
+            #CE loss
+            ce_loss = self.ce_loss(emb_r, label) + self.ce_loss(emb_i, label)
+
+            #total loss
+            total_loss = same_recon + cross_recon + cycle_recon + code_recon + triplet_loss
 
 
-        return 0
+        return total_loss, 
 
 
     def recon_criterion(input, target):
