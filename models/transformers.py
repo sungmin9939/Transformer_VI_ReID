@@ -366,6 +366,126 @@ class Trans_VIReID(nn.Module):
         return total_loss, 
 
 
+class Trans_VIReID_test(nn.Module):
+    def __init__(self, in_channel, patch_size, emb_size, img_size, mlp_ratio, drop_rate, num_head, depth, depth1, depth2, depth3, depth4, depth5\
+                        ,initial_size, num_classes, train ):
+        super().__init__()
+        
+        self.in_channel = in_channel
+        self.patch_size = patch_size
+        self.emb_size = emb_size
+        self.img_size = img_size
+        self.mlp_ratio = mlp_ratio
+        self.drop_rate = drop_rate
+        self.num_head = num_head
+        self.depth = depth
+        self.depth1 = depth1
+        self.depth2 = depth2
+        self.depth3 = depth3
+        self.depth4 = depth4
+        self.depth5 = depth5
+        self.initial_size = initial_size
+        self.num_classes = num_classes
+        self.is_train = train
+        self.margin = 0.5
+        if self.is_train:
+            self.triplet = OriTripletLoss(16, self.margin)
+            self.ce_loss = nn.CrossEntropyLoss()
+
+
+
+        #loss functions
+        self.l1 = nn.L1Loss()
+        
+
+        self.patch_emb = PatchEmbedding(self.in_channel, self.patch_size, self.emb_size, self.img_size)
+
+        self.disc_encoder_rgb = TransformerEncoder(self.depth, self.emb_size, self.num_head, self.mlp_ratio, self.drop_rate)
+        self.excl_encoder_rgb = TransformerEncoder(self.depth, self.emb_size, self.num_head, self.mlp_ratio, self.drop_rate)
+
+        self.disc_encoder_ir = TransformerEncoder(self.depth, self.emb_size, self.num_head, self.mlp_ratio, self.drop_rate)
+        self.excl_encoder_ir = TransformerEncoder(self.depth, self.emb_size, self.num_head, self.mlp_ratio, self.drop_rate)
+
+        self.generator = Generator(self.depth1,self.depth2,self.depth3,self.depth4, self.depth5, self.initial_size, self.emb_size, self.num_head, self.mlp_ratio, self.drop_rate)
+        self.classifier = nn.Linear(self.emb_size, self.num_classes)
+        '''
+        self.generator_rgb = Generator()
+        self.generator_ir = Generator()
+        '''
+
+    
+
+    def forward(self, x_rgb, x_ir, label=None):
+
+        #embbeding images to patches    
+        patch_x_rgb,x_rgb = self.patch_emb(x_rgb)
+        patch_x_ir, x_ir = self.patch_emb(x_ir)
+
+        
+
+        #extract discriminative features from transformers
+        disc_rgb = self.disc_encoder_rgb(patch_x_rgb)
+        disc_ir = self.disc_encoder_ir(patch_x_ir)
+        
+        emb_r = self.classifier(disc_rgb.mean(dim=1))
+        emb_i = self.classifier(disc_ir.mean(dim=1))
+
+        #(FOR TRAINING)
+        if self.is_train:
+            #extract excluded features from transformers
+            excl_rgb = self.excl_encoder_rgb(patch_x_rgb)
+            excl_ir = self.excl_encoder_ir(patch_x_ir)
+            #generating counterpart images while preserving identity infromation
+            x_r2i = self.generator(torch.cat((disc_rgb.mean(dim=1), excl_ir.mean(dim=1)), dim=1)) ## disc_rgb + excl_ir
+            x_i2r = self.generator(torch.cat((disc_ir.mean(dim=1), excl_rgb.mean(dim=1)), dim=1)) ## disc_ir + excl_rgb
+
+            x_r2r = self.generator(torch.cat((disc_rgb.mean(dim=1), excl_rgb.mean(dim=1)), dim=1)) ## disc_rgb + excl_rgb
+            x_i2i = self.generator(torch.cat((disc_ir.mean(dim=1), excl_ir.mean(dim=1)), dim=1)) ## disc_ir + excl_ir
+
+            x_r2i = self.patch_emb(x_r2i)
+            x_i2r = self.patch_emb(x_i2r)
+
+            disc_i2r = self.disc_encoder_rgb(x_i2r)
+            excl_i2r = self.excl_encoder_rgb(x_i2r)
+
+            disc_r2i = self.disc_encoder_ir(x_r2i)
+            excl_r2i = self.excl_encoder_ir(x_r2i)
+
+
+            x_r_cycle = self.generator(torch.cat((disc_r2i.mean(dim=1), excl_i2r.mean(dim=1)), dim=1)) ## disc_r2i + excl_i2r
+            x_i_cycle = self.generator(torch.cat((disc_i2r.mean(dim=1), excl_r2i.mean(dim=1)), dim=1)) ## disc_i2r + excl_r2i
+
+            #calculating losses...
+
+            #image reconstruction loss(same)
+            recon_r = self.recon_criterion(x_rgb, x_r2r)
+            recon_i = self.recon_criterion(x_ir, x_i2i)
+            same_recon = recon_i + recon_r
+            #image reconstruction loss(cross)
+            recon_r = self.recon_criterion(x_rgb, x_i2r)
+            recon_i = self.recon_criterion(x_ir, x_r2i)
+            cross_recon = recon_r + recon_i
+            #image reconstruction loss(cycle)
+            recon_r = self.recon_criterion(x_rgb, x_r_cycle)
+            recon_i = self.recon_criterion(x_ir, x_i_cycle)
+            cycle_recon = recon_i + recon_r
+            #code reconstruction loss
+            recon_code_r = self.recon_criterion(disc_i2r, disc_rgb)
+            recon_code_i = self.recon_criterion(disc_r2i, disc_ir)
+            code_recon = recon_code_r + recon_code_i
+
+            #triplet loss
+            triplet_loss, _ = self.triplet(torch.cat((emb_r, emb_i), dim=0), torch.cat((label, label)))
+
+            #CE loss
+            ce_loss = self.ce_loss(emb_r, label) + self.ce_loss(emb_i, label)
+
+            #total loss
+            total_loss = same_recon + cross_recon + cycle_recon + code_recon + triplet_loss
+
+
+        return total_loss,
+
     def recon_criterion(input, target):
         return torch.mean(torch.abs(input - target))
 
