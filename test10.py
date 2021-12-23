@@ -14,7 +14,7 @@ parser.add_argument('--depth', default=5)
 parser.add_argument('--dim', default=768)
 parser.add_argument('--heads', default=4)
 parser.add_argument('--mlp_ratio', default=4)
-parser.add_argument('--drop_rate', default=0)
+parser.add_argument('--drop_rate', default=0.1, type=float)
 parser.add_argument('--num_classes', default=412)
 parser.add_argument('--img_size',default=128)
 parser.add_argument('--patch_size',default=16)
@@ -27,19 +27,12 @@ parser.add_argument('--margin',default=0.5)
 opt = parser.parse_args()
 
 device = torch.device('cuda:0')
-model = Trans_VIReID(opt)
-
+model = Trans_VIReID(opt).to(device)
+label = torch.randn(opt.num_classes).to(device)
 
 img = Image.open('./cat.jpg')
 img2 = Image.open('./dog.jpg')
 
-embedder = PatchEmbedding().to(device)
-patches = embedder(img, 'visible')
 
-output = model(patches[0])
-print(output.shape)
-
-output = output[:,1:,:].transpose(1,2)
-print(output.shape)
-output = output.unflatten(2, (8,8))
+output = model(img, img2, label)
 print(output.shape)

@@ -108,7 +108,7 @@ class Encoder_Block(nn.Module):
         return x
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, depth, dim, heads, mlp_ratio=4, drop_rate=0.):
+    def __init__(self, depth, dim, heads, mlp_ratio=4, drop_rate=0.1):
         super().__init__()
         self.Encoder_Blocks = nn.ModuleList([
             Encoder_Block(dim, heads, mlp_ratio, drop_rate)
@@ -123,25 +123,26 @@ class TransformerEncoder(nn.Module):
 
 class Trans_VIReID(nn.Module):
     def __init__(self, opt):
+        super().__init__()
         self.depth = opt.depth
         self.dim = opt.dim
         self.heads = opt.heads
         self.mlp_ratio = opt.mlp_ratio
-        self.drop_rate = opt.mlp_ratio
+        self.drop_rate = opt.drop_rate
         self.num_classes = opt.num_classes
         self.img_size = opt.img_size
         self.patch_size = opt.patch_size
         self.in_channel = opt.in_channel
         self.is_train = opt.is_train
 
-        self.disc_encoder = TransfomerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
-        self.excl_encoder = TransfomerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
+        self.disc_encoder = TransformerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
+        self.excl_encoder = TransformerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
 
         self.embbeder = PatchEmbedding()
 
         self.to_img = nn.Sequential(
             nn.Linear(self.dim, self.dim),
-            Rearrange('b (h w) (p p c) -> b c (h p) (w p)', h=(self.img_size/self.patch_size), w=(self.img_size/self.patch_size), p=self.patch_size, c=self.in_channel)
+            Rearrange('b (h w) (p1 p2 c) -> b c (h p1) (w p2)', h=int(self.img_size/self.patch_size), w=int(self.img_size/self.patch_size), p1=self.patch_size, p2=self.patch_size, c=self.in_channel)
         )
         self.classifier = nn.Linear(self.dim, self.num_classes)
 
@@ -165,6 +166,7 @@ class Trans_VIReID(nn.Module):
         ir_id = self.classifier(torch.mean(disc_ir, dim=1))
 
         if self.train:
+            print((disc_rgb[:,1:] * excl_rgb[:,1:]).shape)
             re_rgb = self.to_img(disc_rgb[:,1:] * excl_rgb[:,1:])
             re_ir = self.to_img(disc_ir[:,1:] * excl_ir[:,1:])
 
@@ -172,11 +174,14 @@ class Trans_VIReID(nn.Module):
             di_er = self.to_img(disc_ir[:,1:] * excl_rgb[:,1:])
 
             recon_loss = self.recon_loss(re_rgb, x_rgb) + self.recon_loss(re_ir, x_ir)
-            id_loss = self.id_loss(rgb_id, label) + self.id_loss(ir_id, label)
-            triplet_loss = self.triplet(torch.cat((rgb_id, ir_id),dim=0), torch.cat(label, label))
+            #id_loss = self.id_loss(rgb_id, label) + self.id_loss(ir_id, label)
+            #triplet_loss = self.triplet(torch.cat((rgb_id, ir_id),dim=0), torch.cat(label, label))
 
-            total_loss = recon_loss + id_loss + triplet_loss
-            
+            #total_loss = recon_loss + id_loss + triplet_loss
+            return re_rgb
+
+        return 1
+
 
             
 
