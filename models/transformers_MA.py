@@ -69,7 +69,7 @@ class PatchEmbedding(nn.Module):
         self.cls_token = nn.Parameter(torch.randn(1,1,emb_size))
         self.positions = nn.Parameter(torch.randn((img_size // patch_size)**2 +1, emb_size))
         self.visible = nn.Parameter(torch.ones((img_size // patch_size)**2 +1, emb_size))
-        self.infrared = nn.Parameter(torch.ones((img_size // patch_size)**2 +1, emb_size)) + 1)
+        self.infrared = nn.Parameter(torch.ones((img_size // patch_size)**2 +1, emb_size) + 1)
         
 
         self.device = torch.device('cuda:0') 
@@ -91,3 +91,31 @@ class PatchEmbedding(nn.Module):
         else:
             x_pt += self.infrared
         return x_pt, x
+
+class Encoder_Block(nn.Module):
+    def __init__(self, dim, heads, mlp_ratio=4, drop_rate=0.):
+        super().__init__()
+        self.ln1 = nn.LayerNorm(dim)
+        self.attn = Attention(dim, heads, drop_rate, drop_rate)
+        self.ln2 = nn.LayerNorm(dim)
+        self.mlp = MLP(dim, dim*mlp_ratio, dropout=drop_rate)
+
+    def forward(self, x):
+        x1 = self.ln1(x)
+        x = x + self.attn(x1)
+        x2 = self.ln2(x)
+        x = x + self.mlp(x2)
+        return x
+
+class TransformerEncoder(nn.Module):
+    def __init__(self, depth, dim, heads, mlp_ratio=4, drop_rate=0.):
+        super().__init__()
+        self.Encoder_Blocks = nn.ModuleList([
+            Encoder_Block(dim, heads, mlp_ratio, drop_rate)
+            for i in range(depth)])
+
+    def forward(self, x):
+        for Encoder_Block in self.Encoder_Blocks:
+            x = Encoder_Block(x)
+        return x
+
