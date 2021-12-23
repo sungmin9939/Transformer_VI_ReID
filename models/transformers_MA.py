@@ -119,3 +119,20 @@ class TransformerEncoder(nn.Module):
             x = Encoder_Block(x)
         return x
 
+
+
+class Trans_VIReID(nn.Module):
+    def __init__(self, opt, depth, dim, heads, mlp_ratio, drop_rate, num_classes, is_train):
+        self.depth = opt.depth
+        self.dim = opt.dim
+        self.heads = opt.heads
+        self.mlp_ratio = opt.mlp_ratio
+        self.drop_rate = opt.mlp_ratio
+        self.num_classes = opt.num_classes
+        self.is_train = opt.is_train
+
+        self.disc_encoder = TransfomerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
+        self.excl_encoder = TransfomerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
+
+        
+
