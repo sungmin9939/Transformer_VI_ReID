@@ -1,6 +1,17 @@
 import torch
 from models.transformers_MA import TransformerEncoder, PatchEmbedding
 from PIL import Image
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset',default='RegDB')
+parser.add_argument('--lr', default=0.1, type=float)
+parser.add_argument('--optim',default='sgd', type=str)
+parser.add_argument('--batch_size',default=8)
+parser.add_argument('--img_size',default=128)
+
+
+opt = parser.parse_args()
 
 device = torch.device('cuda:0')
 model = TransformerEncoder(5, 768, 4).to(device)

@@ -122,17 +122,66 @@ class TransformerEncoder(nn.Module):
 
 
 class Trans_VIReID(nn.Module):
-    def __init__(self, opt, depth, dim, heads, mlp_ratio, drop_rate, num_classes, is_train):
+    def __init__(self, opt):
         self.depth = opt.depth
         self.dim = opt.dim
         self.heads = opt.heads
         self.mlp_ratio = opt.mlp_ratio
         self.drop_rate = opt.mlp_ratio
         self.num_classes = opt.num_classes
+        self.img_size = opt.img_size
+        self.patch_size = opt.patch_size
+        self.in_channel = opt.in_channel
         self.is_train = opt.is_train
 
         self.disc_encoder = TransfomerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
         self.excl_encoder = TransfomerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
 
+        self.embbeder = PatchEmbedding()
+
+        self.to_img = nn.Sequential(
+            nn.Linear(self.dim, self.dim),
+            Rearrange('b (h w) (p p c) -> b c (h p) (w p)', h=(self.img_size/self.patch_size), w=(self.img_size/self.patch_size), p=self.patch_size, c=self.in_channel)
+        )
+        self.classifier = nn.Linear(self.dim, self.num_classes)
+
+        if self.train:
+            self.recon_loss = nn.L1Loss()
+            self.id_loss = nn.CrossEntropyLoss()
+            self.triplet = OriTripletLoss(opt.batch_size*16, opt.margin)
+
+
+    def forward(self, x_rgb, x_ir, label=None):
+        patch_x_rgb,x_rgb = self.embbeder(x_rgb,'visible')
+        patch_x_ir, x_ir = self.embbeder(x_ir,'thermal')
+
+        disc_rgb = self.disc_encoder(patch_x_rgb)
+        disc_ir = self.disc_encoder(patch_x_ir)
+
+        excl_rgb = self.excl_encoder(patch_x_rgb)
+        excl_ir = self.excl_encoder(patch_x_ir)
         
+        rgb_id = self.classifier(torch.mean(disc_rgb, dim=1))
+        ir_id = self.classifier(torch.mean(disc_ir, dim=1))
+
+        if self.train:
+            re_rgb = self.to_img(disc_rgb[:,1:] * excl_rgb[:,1:])
+            re_ir = self.to_img(disc_ir[:,1:] * excl_ir[:,1:])
+
+            dr_ei = self.to_img(disc_rgb[:,1:] * excl_ir[:,1:])
+            di_er = self.to_img(disc_ir[:,1:] * excl_rgb[:,1:])
+
+            recon_loss = self.recon_loss(re_rgb, x_rgb) + self.recon_loss(re_ir, x_ir)
+            id_loss = self.id_loss(rgb_id, label) + self.id_loss(ir_id, label)
+            triplet_loss = self.triplet(torch.cat((rgb_id, ir_id),dim=0), torch.cat(label, label))
+
+            total_loss = recon_loss + id_loss + triplet_loss
+            
+
+            
+
+
+
+
+
 
