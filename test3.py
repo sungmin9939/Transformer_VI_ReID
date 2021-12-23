@@ -28,11 +28,11 @@ def main(opt):
     
     transform = Compose(transform_train_list)
     if opt.dataset == 'RegDB':
-        data_path = 'C:/Users/sungm/Transformer_VI_ReID/datasets/RegDB_01'
+        data_path = './datasets/RegDB_01'
         num_classes = 206
         dataset = RegDBData(data_path, transform)
     elif opt.dataset == 'sysu':
-        data_path = 'C:/Users/sungm/Transformer_VI_ReID/datasets/SYSU-MM01'
+        data_path = './datasets/SYSU-MM01'
     
     model = Trans_VIReID(3, 16, 768, 128, \
                        mlp_ratio=4,drop_rate=0, num_head=3, depth=4, depth1=5,depth2=4,depth3=2,depth4=2,depth5=2,initial_size=8, num_classes=206)

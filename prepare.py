@@ -1,7 +1,6 @@
 import os
 from shutil import copyfile
 
-from torch.utils import data
 import sys
 
 data_path = './datasets/RegDB_01/train'
