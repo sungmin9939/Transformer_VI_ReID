@@ -179,8 +179,7 @@ class Trans_VIReID(nn.Module):
             cross_recon_loss = self.recon_loss(x_rgb, di_er) + self.recon_loss(x_ir, dr_ei)
             id_loss = self.id_loss(rgb_id, label) + self.id_loss(ir_id, label)
 
-            total_loss = recon_loss + cross_recon_loss + id_loss
-            return total_loss, rgb_id, ir_id
+            return recon_loss, cross_recon_loss, id_loss, rgb_id, ir_id
 
         return 1
 
