@@ -39,7 +39,7 @@ class SYSUData(data.Dataset):
 class RegDBData(data.Dataset):
     def __init__(self, data_dir, transform=None):
         self.data_dir = data_dir
-        self.train_folder_path = os.path.join(self.data_dir, 'train_py')
+        self.train_folder_path = self.data_dir + '/train_py'
         self.transform = transform
         self.ids = os.listdir(self.train_folder_path)
 
@@ -66,7 +66,7 @@ class RegDBData(data.Dataset):
         visible_image = self.transform(visible_image)
         thermal_image = self.transform(thermal_image)
 
-        return visible_image, thermal_image, label
+        return visible_image, thermal_image, int(label)
 
     def __len__(self):
         return len(self.visible_files)

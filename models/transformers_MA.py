@@ -129,7 +129,10 @@ class Trans_VIReID(nn.Module):
         self.heads = opt.heads
         self.mlp_ratio = opt.mlp_ratio
         self.drop_rate = opt.drop_rate
-        self.num_classes = opt.num_classes
+        if opt.dataset == "RegDB":
+            self.num_classes = 206
+        elif opt.dataset == "SYSU":
+            self.num_classes = 1
         self.img_size = opt.img_size
         self.patch_size = opt.patch_size
         self.in_channel = opt.in_channel
@@ -165,8 +168,7 @@ class Trans_VIReID(nn.Module):
         rgb_id = self.classifier(torch.mean(disc_rgb, dim=1))
         ir_id = self.classifier(torch.mean(disc_ir, dim=1))
 
-        if self.train:
-            print((disc_rgb[:,1:] * excl_rgb[:,1:]).shape)
+        if self.is_train:
             re_rgb = self.to_img(disc_rgb[:,1:] * excl_rgb[:,1:])
             re_ir = self.to_img(disc_ir[:,1:] * excl_ir[:,1:])
 
@@ -174,11 +176,11 @@ class Trans_VIReID(nn.Module):
             di_er = self.to_img(disc_ir[:,1:] * excl_rgb[:,1:])
 
             recon_loss = self.recon_loss(re_rgb, x_rgb) + self.recon_loss(re_ir, x_ir)
-            #id_loss = self.id_loss(rgb_id, label) + self.id_loss(ir_id, label)
-            #triplet_loss = self.triplet(torch.cat((rgb_id, ir_id),dim=0), torch.cat(label, label))
+            cross_recon_loss = self.recon_loss(x_rgb, di_er) + self.recon_loss(x_ir, dr_ei)
+            id_loss = self.id_loss(rgb_id, label) + self.id_loss(ir_id, label)
 
-            #total_loss = recon_loss + id_loss + triplet_loss
-            return re_rgb
+            total_loss = recon_loss + cross_recon_loss + id_loss
+            return total_loss, rgb_id, ir_id
 
         return 1
 
