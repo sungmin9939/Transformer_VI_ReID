@@ -155,7 +155,6 @@ class Trans_VIReID(nn.Module):
         if self.train:
             self.recon_loss = nn.L1Loss()
             self.id_loss = nn.CrossEntropyLoss()
-            self.triplet = OriTripletLoss(opt.batch_size*16, opt.margin)
 
 
     def forward(self, x_rgb, x_ir, label=None):
@@ -173,11 +172,11 @@ class Trans_VIReID(nn.Module):
         ir_id = self.classifier(torch.mean(disc_ir, dim=1))
 
         if self.is_train:
-            re_rgb = self.to_img(disc_rgb[:,1:] * excl_rgb[:,1:])
-            re_ir = self.to_img(disc_ir[:,1:] * excl_ir[:,1:])
+            re_rgb = self.to_img(disc_rgb[:,1:] + excl_rgb[:,1:])
+            re_ir = self.to_img(disc_ir[:,1:] + excl_ir[:,1:])
 
-            dr_ei = self.to_img(disc_rgb[:,1:] * excl_ir[:,1:])
-            di_er = self.to_img(disc_ir[:,1:] * excl_rgb[:,1:])
+            dr_ei = self.to_img(disc_rgb[:,1:] + excl_ir[:,1:])
+            di_er = self.to_img(disc_ir[:,1:] + excl_rgb[:,1:])
 
             recon_loss = self.recon_loss(re_rgb, x_rgb) + self.recon_loss(re_ir, x_ir)
             cross_recon_loss = self.recon_loss(x_rgb, di_er) + self.recon_loss(x_ir, dr_ei)

@@ -136,7 +136,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset',default='RegDB', type=str)
     parser.add_argument('--lr', default=0.001, type=float)
-    parser.add_argument('--decay',default=0.1, type=float)
+    parser.add_argument('--decay',default=0.0001, type=float)
     parser.add_argument('--optim',default='Adam', type=str)
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=1000)
