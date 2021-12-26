@@ -83,9 +83,12 @@ class PatchEmbedding(nn.Module):
         b,_,_,_ = x.shape
         
         x_pt = self.projection(x)
+        if torch.count_nonzero(torch.isnan(x_pt)):
+            print('projection error')
         cls_tokens = repeat(self.cls_token, '() n e -> b n e', b=b)
         x_pt = torch.cat([cls_tokens, x_pt],dim=1)
         x_pt += self.positions
+        
         if modality == 'visible':
             x_pt += self.visible
         else:
@@ -158,6 +161,7 @@ class Trans_VIReID(nn.Module):
     def forward(self, x_rgb, x_ir, label=None):
         patch_x_rgb,x_rgb = self.embbeder(x_rgb,'visible')
         patch_x_ir, x_ir = self.embbeder(x_ir,'thermal')
+        
 
         disc_rgb = self.disc_encoder(patch_x_rgb)
         disc_ir = self.disc_encoder(patch_x_ir)

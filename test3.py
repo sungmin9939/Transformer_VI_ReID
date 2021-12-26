@@ -79,7 +79,7 @@ def main(opt):
     if opt.optim == 'sgd':
         optimizer = optim.SGD(model.parameters())
     elif opt.optim == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr=opt.lr)
+        optimizer = optim.Adam(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
     
     for i in range(opt.epochs):
         trainloader = tqdm(dataloader)
@@ -89,12 +89,13 @@ def main(opt):
             rgb = Variable(rgb).to(device)
             ir = Variable(ir).to(device)
             label = Variable(label).to(device)
-            if torch.count_nonzero(torch.isnan(rgb)):
-                print('input nan!')
+            
 
 
             
             recon_loss, cross_recon_loss, id_loss, rgb_id, ir_id = model(rgb, ir, label)
+            
+            
 
             tri_loss = criterion_tri(torch.cat((rgb_id, ir_id), dim=0), torch.cat((label, label)))
 
@@ -114,7 +115,11 @@ def main(opt):
         writer.add_scalar('recon_loss', loss_recon.avg, i)
         writer.add_scalar('cross_recon_loss', loss_crecon.avg, i)
         writer.add_scalar('tri_loss', loss_tri.avg, i)
-        writer.add_scalar('loss_id', loss_id.avg, i)
+        writer.add_scalar('id_loss', loss_id.avg, i)
+        print(
+            'train_loss: {}\nrecon_loss: {}\ncross_recon_loss: {}\ntri_loss: {}\nid_loss: {}'.format(loss_train.avg, loss_recon.avg, loss_crecon.avg, loss_tri.avg, loss_id.avg)
+            
+        )
 
 
 
@@ -131,6 +136,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset',default='RegDB', type=str)
     parser.add_argument('--lr', default=0.001, type=float)
+    parser.add_argument('--decay',default=0.1, type=float)
     parser.add_argument('--optim',default='Adam', type=str)
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=1000)
