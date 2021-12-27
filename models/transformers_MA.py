@@ -150,28 +150,29 @@ class Trans_VIReID(nn.Module):
             nn.Linear(self.dim, self.dim),
             Rearrange('b (h w) (p1 p2 c) -> b c (h p1) (w p2)', h=int(self.img_size/self.patch_size), w=int(self.img_size/self.patch_size), p1=self.patch_size, p2=self.patch_size, c=self.in_channel)
         )
+
+        self.batchnorm = nn.BatchNorm1d(65)
         self.classifier = nn.Linear(self.dim, self.num_classes)
 
-        if self.train:
+        if self.training:
             self.recon_loss = nn.L1Loss()
             self.id_loss = nn.CrossEntropyLoss()
 
 
-    def forward(self, x_rgb, x_ir, label=None):
-        patch_x_rgb,x_rgb = self.embbeder(x_rgb,'visible')
-        patch_x_ir, x_ir = self.embbeder(x_ir,'thermal')
-        
+    def forward(self, x_rgb, x_ir, label=None, modal=0):
+        if modal == 0:
+            patch_x_rgb,x_rgb = self.embbeder(x_rgb,'visible')
+            patch_x_ir, x_ir = self.embbeder(x_ir,'thermal')
+            
+            disc_rgb = self.disc_encoder(patch_x_rgb)
+            disc_ir = self.disc_encoder(patch_x_ir)
 
-        disc_rgb = self.disc_encoder(patch_x_rgb)
-        disc_ir = self.disc_encoder(patch_x_ir)
+            excl_rgb = self.excl_encoder(patch_x_rgb)
+            excl_ir = self.excl_encoder(patch_x_ir)
 
-        excl_rgb = self.excl_encoder(patch_x_rgb)
-        excl_ir = self.excl_encoder(patch_x_ir)
-        
-        rgb_id = self.classifier(torch.mean(disc_rgb, dim=1))
-        ir_id = self.classifier(torch.mean(disc_ir, dim=1))
+            rgb_id = self.classifier(torch.mean(self.batchnorm(disc_rgb), dim=1))
+            ir_id = self.classifier(torch.mean(self.batchnorm(disc_ir), dim=1))
 
-        if self.is_train:
             re_rgb = self.to_img(disc_rgb[:,1:] + excl_rgb[:,1:])
             re_ir = self.to_img(disc_ir[:,1:] + excl_ir[:,1:])
 
@@ -184,13 +185,13 @@ class Trans_VIReID(nn.Module):
 
             return recon_loss, cross_recon_loss, id_loss, rgb_id, ir_id
 
-        return 1
+        elif modal == 1:
+            patch_x_rgb, _ = self.embbeder(x_rgb, 'visible')
+            disc_rgb = self.disc_encoder(patch_x_rgb)
 
+            return disc_rgb.view(disc_rgb.size(0),-1), self.batchnorm(disc_rgb).view(disc_rgb.size(0),-1)
+        elif modal == 2:
+            patch_x_ir, _ = self.embbeder(x_ir, 'thermal')
+            disc_ir = self.disc_encoder(patch_x_ir)
 
-            
-
-
-
-
-
-
+            return disc_ir.view(disc_ir.size(0),-1), self.batchnorm(disc_ir).view(disc_ir.size(0),-1)
