@@ -132,7 +132,7 @@ def main(opt):
         print(
             'epoch: {}\ntrain_loss: {}\nrecon_loss: {}\ncross_recon_loss: {}\ntri_loss: {}\nid_loss: {}'.format(i, loss_train.avg, loss_recon.avg, loss_crecon.avg, loss_tri.avg, loss_id.avg)
         )
-        if i % 10 == 0:
+        if i % 100 == 0:
             torch.save(model.state_dict(), './checkpoint/exp{}_epoch{}.pth'.format(opt.trial, i))
 
         #test
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=1000)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=2)
+    parser.add_argument('--trial',default=3)
 
     parser.add_argument('--depth', default=5)
     parser.add_argument('--dim', default=768)
@@ -230,7 +230,7 @@ if __name__ == "__main__":
     parser.add_argument('--patch_size',default=16)
     parser.add_argument('--in_channel',default=3)
     parser.add_argument('--is_train',default=True)
-    parser.add_argument('--batch_size',default=64, type=int)
+    parser.add_argument('--batch_size',default=128, type=int)
     parser.add_argument('--margin',default=0.5)
     
 
