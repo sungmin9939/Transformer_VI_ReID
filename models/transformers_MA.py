@@ -9,6 +9,8 @@ from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange, Reduce
 from torchsummary import summary
 from loss import OriTripletLoss
+from transformers import ViTModel
+
 
 
 class MLP(nn.Module):
@@ -141,8 +143,8 @@ class Trans_VIReID(nn.Module):
         self.in_channel = opt.in_channel
         self.is_train = opt.is_train
 
-        self.disc_encoder = TransformerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
-        self.excl_encoder = TransformerEncoder(self.depth, self.dim, self.heads, self.mlp_ratio, self.drop_rate)
+        self.disc_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
+        self.excl_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
 
         self.embbeder = PatchEmbedding()
 
