@@ -9,6 +9,6 @@ print(model.embeddings.rgb_embeddings.shape)
 
 
 output = model(input, interpolate_pos_encoding=True, modal=1)
-output2 = model(input2)
+#output2 = model(input2)
 print(output.last_hidden_state.shape)
 print(output2.last_hidden_state.shape)
