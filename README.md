@@ -3,6 +3,9 @@
 
 1. patch embeddings => modality embedding 추가 완료
 2. patch embeddings => patch overlapping 추가 완료
+3. dataloader => each identity contain 4 rgb, 4 ir (one call of __getitem__)
+4. modality aware loss 
+
 
 
 forward process
