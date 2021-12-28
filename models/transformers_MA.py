@@ -129,11 +129,6 @@ class TransformerEncoder(nn.Module):
 class Trans_VIReID(nn.Module):
     def __init__(self, opt):
         super().__init__()
-        self.depth = opt.depth
-        self.dim = opt.dim
-        self.heads = opt.heads
-        self.mlp_ratio = opt.mlp_ratio
-        self.drop_rate = opt.drop_rate
         if opt.dataset == "RegDB":
             self.num_classes = 206
         elif opt.dataset == "SYSU":
