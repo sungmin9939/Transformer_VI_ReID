@@ -133,22 +133,28 @@ class Trans_VIReID(nn.Module):
             self.num_classes = 206
         elif opt.dataset == "SYSU":
             self.num_classes = 1
-        self.img_size = opt.img_size
+        self.img_h = opt.img_h
+        self.img_w = opt.img_w
         self.patch_size = opt.patch_size
+        self.patch_overlap = int(self.patch_size/2)
+        self.scaled_h = int((self.img_h-self.patch_overlap)/self.patch_overlap)
+        self.sclaed_w = int((self.img_w-self.patch_overlap)/self.patch_overlap)
+        
+        
         self.in_channel = opt.in_channel
+        self.dim = opt.dim
         self.is_train = opt.is_train
+        
 
         self.disc_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
         self.excl_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
 
-        self.embbeder = PatchEmbedding()
-
         self.to_img = nn.Sequential(
-            nn.Linear(self.dim, self.dim),
-            Rearrange('b (h w) (p1 p2 c) -> b c (h p1) (w p2)', h=int(self.img_size/self.patch_size), w=int(self.img_size/self.patch_size), p1=self.patch_size, p2=self.patch_size, c=self.in_channel)
+            Rearrange('b (h w) c -> b c h w', h=self.scaled_h, w=self.sclaed_w),
+            nn.ConvTranspose2d(self.dim, self.in_channel, kernel_size=(self.patch_size,self.patch_size), stride=(self.patch_overlap,self.patch_overlap))
         )
 
-        self.batchnorm = nn.BatchNorm1d(65)
+        self.batchnorm = nn.BatchNorm1d(self.sclaed_w * self.scaled_h+1)
         self.classifier = nn.Linear(self.dim, self.num_classes)
 
         if self.training:
@@ -158,14 +164,12 @@ class Trans_VIReID(nn.Module):
 
     def forward(self, x_rgb, x_ir, label=None, modal=0):
         if modal == 0:
-            patch_x_rgb,x_rgb = self.embbeder(x_rgb,'visible')
-            patch_x_ir, x_ir = self.embbeder(x_ir,'thermal')
             
-            disc_rgb = self.disc_encoder(patch_x_rgb)
-            disc_ir = self.disc_encoder(patch_x_ir)
+            disc_rgb = self.disc_encoder(pixel_values=x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
+            disc_ir = self.disc_encoder(pixel_values=x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
 
-            excl_rgb = self.excl_encoder(patch_x_rgb)
-            excl_ir = self.excl_encoder(patch_x_ir)
+            excl_rgb = self.excl_encoder(x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
+            excl_ir = self.excl_encoder(x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
 
             rgb_id = self.classifier(torch.mean(self.batchnorm(disc_rgb), dim=1))
             ir_id = self.classifier(torch.mean(self.batchnorm(disc_ir), dim=1))
@@ -183,12 +187,14 @@ class Trans_VIReID(nn.Module):
             return recon_loss, cross_recon_loss, id_loss, rgb_id, ir_id
 
         elif modal == 1:
-            patch_x_rgb, _ = self.embbeder(x_rgb, 'visible')
-            disc_rgb = self.disc_encoder(patch_x_rgb)
+            disc_rgb = self.disc_encoder(pixel_values=x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
+            feat = torch.mean(disc_rgb, dim=1)
+            feat_att = torch.mean(self.batchnorm(disc_rgb),dim=1)
 
-            return disc_rgb.view(disc_rgb.size(0),-1), self.batchnorm(disc_rgb).view(disc_rgb.size(0),-1)
+            return feat, feat_att
         elif modal == 2:
-            patch_x_ir, _ = self.embbeder(x_ir, 'thermal')
-            disc_ir = self.disc_encoder(patch_x_ir)
+            disc_ir = self.disc_encoder(pixel_values=x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
+            feat = torch.mean(disc_ir, dim=1)
+            feat_att = torch.mean(self.batchnorm(disc_ir),dim=1)
 
-            return disc_ir.view(disc_ir.size(0),-1), self.batchnorm(disc_ir).view(disc_ir.size(0),-1)
+            return feat, feat_att

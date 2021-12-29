@@ -34,19 +34,18 @@ def main(opt):
     loss_train = AverageMeter()
 
     #Image Transformation
-    transform_train_list = [
-        transforms.Resize((128,128)),
+    transform_train = transforms.Compose(
+        transforms.Resize((256,128)),
         transforms.RandomHorizontalFlip(),
+        transforms.RandomErasing(),
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-        ]
-    transform = Compose(transform_train_list)
-
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    )
+        
     transform_test = transforms.Compose([
-        transforms.Resize((128, 128)),
+        transforms.Resize((256, 128)),
         transforms.ToTensor(),
-        normalize,
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
 
@@ -55,10 +54,10 @@ def main(opt):
     #Initiate dataset
     if opt.dataset == 'RegDB':
         data_path = './datasets/RegDB_01'
-        dataset = RegDBData(data_path, transform)
+        dataset = RegDBData(data_path, transform_train)
     elif opt.dataset == 'sysu':
         data_path = './datasets/SYSU-MM01'
-        dataset = SYSUData(data_path, transform)
+        dataset = SYSUData(data_path, transform_train)
     gallset = TestData('./datasets/RegDB_01','gallery', transform_test)
     queryset = TestData('./datasets/RegDB_01','query', transform_test)
     
@@ -139,8 +138,8 @@ def main(opt):
         print("Testing model Accuracy...")
         model.eval()
         ptr = 0
-        gall_feat = np.zeros((len(gallset),65*768))
-        gall_feat_att = np.zeros((len(gallset),65*768))
+        gall_feat = np.zeros((len(gallset),768))
+        gall_feat_att = np.zeros((len(gallset),768))
         gall_label = np.zeros(len(gallset))
         with torch.no_grad():
             for idx, (img, label) in enumerate(gall_loader):
@@ -153,8 +152,8 @@ def main(opt):
                 ptr = ptr + batch_num
     
         ptr = 0
-        query_feat = np.zeros((len(queryset), 65*768))
-        query_feat_att = np.zeros((len(queryset), 65*768))
+        query_feat = np.zeros((len(queryset), 768))
+        query_feat_att = np.zeros((len(queryset), 768))
         query_label = np.zeros(len(queryset))
         with torch.no_grad():
             for batch_idx, (input, label) in enumerate(query_loader):
@@ -188,28 +187,6 @@ def main(opt):
 
 
 
-
-
-        
-
-        
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-    
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset',default='RegDB', type=str)
@@ -219,14 +196,14 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=1000)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=3)
+    parser.add_argument('--trial',default=3,type=int)
 
-    parser.add_argument('--depth', default=5)
     parser.add_argument('--dim', default=768)
     parser.add_argument('--heads', default=4)
     parser.add_argument('--mlp_ratio', default=4)
     parser.add_argument('--drop_rate', default=0.1, type=float)
-    parser.add_argument('--img_size',default=128)
+    parser.add_argument('--img_h', default=256, type=int)
+    parser.add_argument('--img_w',default=128, type=int)
     parser.add_argument('--patch_size',default=16)
     parser.add_argument('--in_channel',default=3)
     parser.add_argument('--is_train',default=True)
