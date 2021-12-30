@@ -3,6 +3,9 @@ from PIL import Image
 import torch.utils.data as data
 import os, random
 from torchvision import transforms
+from torch.utils.data.sampler import Sampler
+import random
+from itertools import chain
 
 
 
@@ -100,3 +103,59 @@ class TestData(data.Dataset):
 
     def __len__(self):
         return len(self.images)
+
+def make_chuck(slicing_point):
+    list = [i for i in range(slicing_point-9,slicing_point)]
+    chunk = random.sample(list, 4)
+    for i in chunk:
+        list.remove(i)
+
+    chunk2 = random.sample(list,4)
+    for i in chunk2:
+        list.remove(i)
+    chunk3 = random.sample(chunk,2) + random.sample(chunk2, 1) + [list[0]]
+    return np.array([chunk, chunk2, chunk3])
+
+
+
+
+class IdentitySampler(Sampler):
+    def __init__(self, dataset, batch_size):
+        self.dataset_length = len(dataset)
+        self.checklist = range(self.dataset_length)
+        self.slicing_points = []
+        self.batch_size = batch_size
+        for i in range(9,self.dataset_length,9):
+            self.slicing_points.append(i)
+        
+        assert self.batch_size % 4 == 0
+
+        
+    def __iter__(self):
+        id_chunk = None
+
+        for pt in self.slicing_points:
+            chunks = make_chuck(pt)
+            if id_chunk is None:
+                id_chunk = chunks
+            else:
+                id_chunk = np.vstack((id_chunk,chunks))
+        
+        first_chunk = None
+        second_chunk = None
+        third_chunk = None
+
+        for i in range(0,id_chunk.shape[0],3):
+            first_chunk = np.vstack((first_chunk, id_chunk[i])) if first_chunk is not None else id_chunk[i]
+            second_chunk = np.vstack((second_chunk, id_chunk[i+1])) if second_chunk is not None else id_chunk[i+1]
+            third_chunk = np.vstack((third_chunk, id_chunk[i+2])) if third_chunk is not None else id_chunk[i+2]
+        np.random.shuffle(first_chunk)
+        np.random.shuffle(second_chunk)
+        np.random.shuffle(third_chunk)
+
+        final_chunk = np.vstack((first_chunk, second_chunk, third_chunk))
+
+        return iter(final_chunk.flatten().tolist())
+
+    def __len__(self):
+        return len(self.slicing_points) * 12

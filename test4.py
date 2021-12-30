@@ -34,6 +34,7 @@ device = torch.device('cuda:0')
 
 
 model = Trans_VIReID(opt).to(device)
+model.load_state_dict(torch.load('./checkpoint/test.pth'))
 #backbone = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
 
 x = torch.randn(2,3,256,128).to(device)

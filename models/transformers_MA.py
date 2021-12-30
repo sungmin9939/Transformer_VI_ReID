@@ -9,7 +9,7 @@ from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange, Reduce
 from torchsummary import summary
 from loss import OriTripletLoss
-from transformers import ViTModel
+from transformers import ViTModel, ViTConfig
 
 
 
@@ -145,9 +145,10 @@ class Trans_VIReID(nn.Module):
         self.dim = opt.dim
         self.is_train = opt.is_train
         
+        vit_config = ViTConfig()
 
-        self.disc_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
-        self.excl_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
+        self.disc_encoder = ViTModel(vit_config)
+        self.excl_encoder = ViTModel(vit_config)
 
         self.to_img = nn.Sequential(
             Rearrange('b (h w) c -> b c h w', h=self.scaled_h, w=self.sclaed_w),

@@ -4,7 +4,7 @@ from torch._C import device
 from torch.optim import optimizer
 from torchvision import transforms
 from torchvision.transforms.transforms import Compose
-from data_loader import SYSUData, RegDBData, TestData
+from data_loader import SYSUData, RegDBData, TestData, IdentitySampler
 from models.transformers_MA import Trans_VIReID
 from utils import *
 import torch.utils.data as data
@@ -18,6 +18,7 @@ from torch.autograd import Variable
 from loss import TripletLoss_WRT
 from utils import AverageMeter, eval_regdb
 from tensorboardX import SummaryWriter
+import torch.nn as nn
 
 
 
@@ -34,17 +35,19 @@ def main(opt):
     loss_train = AverageMeter()
 
     #Image Transformation
-    transform_train = transforms.Compose(
+    transform_train = transforms.Compose([
+        transforms.ToTensor(),
         transforms.Resize((256,128)),
         transforms.RandomHorizontalFlip(),
         transforms.RandomErasing(),
-        transforms.ToTensor(),
+        
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-    )
+    ])
         
     transform_test = transforms.Compose([
-        transforms.Resize((256, 128)),
         transforms.ToTensor(),
+        transforms.Resize((256, 128)),
+        
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
 
@@ -55,6 +58,7 @@ def main(opt):
     if opt.dataset == 'RegDB':
         data_path = './datasets/RegDB_01'
         dataset = RegDBData(data_path, transform_train)
+        sampler = IdentitySampler(dataset, opt.batch_size)
     elif opt.dataset == 'sysu':
         data_path = './datasets/SYSU-MM01'
         dataset = SYSUData(data_path, transform_train)
@@ -77,11 +81,12 @@ def main(opt):
     model = Trans_VIReID(opt).to(device)
 
     if os.path.exists(opt.checkpoint):
-        pass
+        if opt.trial == 0:
+            model.load_state_dict(torch.load('./checkpoint/start.pth'))
 
+    #model = nn.DataParallel(model, device_ids=[0, 1, 2, 3])
 
-
-    dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, sampler=sampler)
     gall_loader = DataLoader(gallset, batch_size=opt.batch_size, shuffle=False)
     query_loader = DataLoader(queryset, batch_size=opt.batch_size, shuffle=False)
 
@@ -196,18 +201,15 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=1000)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=3,type=int)
+    parser.add_argument('--trial',default=0,type=int)
 
     parser.add_argument('--dim', default=768)
-    parser.add_argument('--heads', default=4)
-    parser.add_argument('--mlp_ratio', default=4)
-    parser.add_argument('--drop_rate', default=0.1, type=float)
     parser.add_argument('--img_h', default=256, type=int)
     parser.add_argument('--img_w',default=128, type=int)
     parser.add_argument('--patch_size',default=16)
     parser.add_argument('--in_channel',default=3)
     parser.add_argument('--is_train',default=True)
-    parser.add_argument('--batch_size',default=128, type=int)
+    parser.add_argument('--batch_size',default=16, type=int)
     parser.add_argument('--margin',default=0.5)
     
 
