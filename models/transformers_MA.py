@@ -36,6 +36,7 @@ class Trans_VIReID(nn.Module):
 
         self.disc_encoder = ViTModel(vit_config)
         self.excl_encoder = ViTModel(vit_config)
+        self.disc_encoder.embeddings.rgb_embeddings
 
         self.to_img = nn.Sequential(
             Rearrange('b (h w) c -> b c h w', h=self.scaled_h, w=self.sclaed_w),
@@ -44,6 +45,7 @@ class Trans_VIReID(nn.Module):
 
         self.batchnorm = nn.BatchNorm1d(self.sclaed_w * self.scaled_h+1)
         self.classifier = nn.Linear(self.dim, self.num_classes)
+        #self.modality_knowledge = nn.Linear(1, self.dim)
 
 
     def forward(self, x_rgb, x_ir, modal=0):
@@ -66,8 +68,23 @@ class Trans_VIReID(nn.Module):
 
             dr_ei = self.to_img(disc_rgb[:,1:] + excl_ir[:,1:])
             di_er = self.to_img(disc_ir[:,1:] + excl_rgb[:,1:])
+            '''
+            rgb_knowledge = self.modality_knowledge(self.disc_encoder.embeddings.rgb_embeddings)
+            ir_knowledge = self.modality_knowledge(self.disc_encoder.embeddings.ir_embeddings)
             
-            return (disc_rgb, disc_ir), (feat_rgb, feat_ir), (rgb_id, ir_id), (re_rgb, re_ir), (dr_ei, di_er)
+            
+            
+            
+            rgb_feat_center = torch.mean(torch.mean(feat_rgb, dim=1) - rgb_knowledge, dim=0)
+            ir_feat_center = torch.mean(torch.mean(feat_ir, dim=1) - ir_knowledge, dim=0)
+            
+            rgb_feat_center_id = self.classifier(torch.mean(feat_rgb, dim=1) - rgb_knowledge)
+            ir_feat_center_id = self.classifier(torch.mean(feat_ir, dim=1) - ir_knowledge)
+            '''
+            
+            
+            
+            return (disc_rgb, disc_ir), (feat_rgb, feat_ir), (rgb_id, ir_id), (re_rgb, re_ir), (di_er, dr_ei)
             '''
             recon_loss = self.recon_loss(re_rgb, x_rgb) + self.recon_loss(re_ir, x_ir)
             cross_recon_loss = self.recon_loss(x_rgb, di_er) + self.recon_loss(x_ir, dr_ei)

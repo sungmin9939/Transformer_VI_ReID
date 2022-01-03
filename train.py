@@ -123,7 +123,7 @@ def main(opt):
             recon_loss = criterion_recon(rgb, out_re[0]) + criterion_recon(ir, out_re[1])
             cross_recon_loss = criterion_recon(rgb, out_cross[0]) + criterion_recon(ir, out_cross[1])
             
-            total_loss = tri_loss[0] + id_loss + recon_loss + cross_recon_loss
+            total_loss = tri_loss[0] + id_loss #+ recon_loss + cross_recon_loss
 
             optimizer.zero_grad()
             total_loss.backward()
@@ -208,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=120)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=1,type=int)
+    parser.add_argument('--trial',default=0,type=int)
 
     parser.add_argument('--dim', default=768)
     parser.add_argument('--img_h', default=256, type=int)
