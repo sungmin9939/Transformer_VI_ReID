@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
 
-
-bn = nn.BatchNorm1d(466)
-a = torch.randn(8,466,768)
-
-b = bn(a)
-print(b.shape)
+device = torch.device('cuda:0')
+a = torch.randn(1,768,31,15).to(device)
+conv = nn.Conv2d(768,1024,(31,15),1).to(device)
+output = conv(a)
+print(output.shape)

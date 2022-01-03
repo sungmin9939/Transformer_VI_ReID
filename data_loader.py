@@ -104,6 +104,35 @@ class TestData(data.Dataset):
     def __len__(self):
         return len(self.images)
 
+class TestData_dum(data.Dataset):
+    def __init__(self, data_dir, mode='T', transform=None):
+        self.data_dir = data_dir
+        self.identities = []
+        for i in os.listdir(self.data_dir):
+            if i[0] == 'T':
+                self.identities.append(i[2:])
+            else:
+                continue
+        self.images = []
+        self.labels = []
+        self.transform = transform
+
+        for id in self.identities:
+            images = os.listdir(os.path.join(self.data_dir, '{}_{}'.format(mode,id)))
+            for img in images:
+                self.images.append(os.path.join(self.data_dir, '{}_{}'.format(mode,id),img))
+                self.labels.append(id)
+    def __getitem__(self,index):
+        img = Image.open(self.images[index])
+        label = self.labels[index]
+
+        img = self.transform(img)
+
+        return img, int(label)
+    
+    def __len__(self):
+        return len(self.images)
+
 def make_chuck(slicing_point):
     list = [i for i in range(slicing_point-9,slicing_point)]
     chunk = random.sample(list, 4)
