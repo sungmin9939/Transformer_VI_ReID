@@ -49,7 +49,8 @@ class RegDBData(data.Dataset):
         self.data_dir = data_dir
         self.train_folder_path = self.data_dir + '/train_py'
         self.transform = transform
-        self.ids = os.listdir(self.train_folder_path)
+        self.ids = sorted(os.listdir(self.train_folder_path))
+        
 
         self.visible_id_pairs = {}
         self.visible_files = []
@@ -61,12 +62,15 @@ class RegDBData(data.Dataset):
                 for image in images:
                     self.visible_id_pairs[image] = id[2:]
                     self.visible_files.append(image)
+        
 
     def __getitem__(self, index):
         visible_image = self.visible_files[index]
+        
         label = self.visible_id_pairs[visible_image]
 
         thermal_image = random.choice(list(os.listdir(self.train_folder_path+ '/T_{}'.format(label))))
+        
         #print('{} {} {}'.format(label, visible_image, thermal_image))
         visible_image = Image.open(os.path.join(self.train_folder_path, 'V_'+label, visible_image))
         thermal_image = Image.open(os.path.join(self.train_folder_path, 'T_'+label, thermal_image))
@@ -96,6 +100,7 @@ class TestData(data.Dataset):
     def __getitem__(self, index):
         img = Image.open(self.images[index])
         label = self.labels[index]
+        print(self.images[index])
 
         img = self.transform(img)
 

@@ -31,13 +31,13 @@ def test(opt):
     ])
 
     device = torch.device('cuda:0')
-    '''
+    
     gallset = TestData_dum('./datasets/RegDB_01/train_py','T', transform_test)
     queryset = TestData_dum('./datasets/RegDB_01/train_py','V', transform_test)
     '''
     gallset = TestData('./datasets/RegDB_01','gallery', transform_test)
     queryset = TestData('./datasets/RegDB_01','query', transform_test)
-    
+    '''
     
     gall_loader = DataLoader(gallset, batch_size=opt.batch_size, shuffle=False)
     query_loader = DataLoader(queryset, batch_size=opt.batch_size, shuffle=False)
@@ -46,7 +46,7 @@ def test(opt):
     model.eval()
 
     if os.path.exists(opt.checkpoint):
-        model.load_state_dict(torch.load('./checkpoint/exp0_epoch200.pth'))
+        model.load_state_dict(torch.load('./checkpoint/start.pth'))
         
     ptr = 0
     gall_feat = np.zeros((len(gallset), 768))
@@ -56,7 +56,7 @@ def test(opt):
         for idx, (img, label) in enumerate(gall_loader):
             batch_num = img.size(0)
             img = Variable(img).to(device)
-            feat, feat_att = model(img,img,label,modal=2)
+            feat, feat_att = model(img,img,modal=2)
             gall_feat[ptr:ptr + batch_num, :] = feat.detach().cpu().numpy()
             gall_feat_att[ptr:ptr + batch_num, :] = feat_att.detach().cpu().numpy()
             gall_label[ptr:ptr + batch_num] = label.numpy()
@@ -70,7 +70,7 @@ def test(opt):
         for batch_idx, (input, label) in enumerate(query_loader):
             batch_num = input.size(0)
             input = Variable(input).to(device)
-            feat, feat_att = model(input, input, label, modal=1)
+            feat, feat_att = model(input, input, modal=1)
             query_feat[ptr:ptr + batch_num, :] = feat.detach().cpu().numpy()
             query_feat_att[ptr:ptr + batch_num, :] = feat_att.detach().cpu().numpy()
             query_label[ptr:ptr + batch_num] = label.numpy()

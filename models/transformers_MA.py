@@ -36,7 +36,7 @@ class Trans_VIReID(nn.Module):
 
         self.disc_encoder = ViTModel(vit_config)
         self.excl_encoder = ViTModel(vit_config)
-        self.disc_encoder.embeddings.rgb_embeddings
+        #self.disc_encoder.embeddings.rgb_embeddings
 
         self.to_img = nn.Sequential(
             Rearrange('b (h w) c -> b c h w', h=self.scaled_h, w=self.sclaed_w),
@@ -56,7 +56,7 @@ class Trans_VIReID(nn.Module):
 
             excl_rgb = self.excl_encoder(x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
             excl_ir = self.excl_encoder(x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
-            
+
             feat_rgb = self.batchnorm(disc_rgb)
             feat_ir = self.batchnorm(disc_ir)
 

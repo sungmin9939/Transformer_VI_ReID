@@ -98,11 +98,15 @@ def main(opt):
     if opt.optim == 'sgd':
         optimizer = optim.SGD(model.parameters())
     elif opt.optim == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
+        optimizer = optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
     
     for i in range(opt.epochs):
         trainloader = tqdm(dataloader)
         model.train()
+        if i == 15 or 30:
+            for g in optimizer.param_groups:
+                g['lr'] *= 0.1
+        
 
         for idx, (rgb, ir, label) in enumerate(trainloader):
             rgb = Variable(rgb).to(device)
