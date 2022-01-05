@@ -60,8 +60,8 @@ class Trans_VIReID(nn.Module):
             feat_rgb = self.batchnorm(disc_rgb)
             feat_ir = self.batchnorm(disc_ir)
 
-            rgb_id = self.classifier(torch.mean(feat_rgb, dim=1))
-            ir_id = self.classifier(torch.mean(feat_ir, dim=1))
+            rgb_id = self.classifier(feat_rgb[:,0])
+            ir_id = self.classifier(feat_ir[:,0])
 
             re_rgb = self.to_img(disc_rgb[:,1:] + excl_rgb[:,1:])
             re_ir = self.to_img(disc_ir[:,1:] + excl_ir[:,1:])
@@ -95,13 +95,13 @@ class Trans_VIReID(nn.Module):
 
         elif modal == 1:
             disc_rgb = self.disc_encoder(pixel_values=x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
-            feat = torch.mean(disc_rgb, dim=1)
-            feat_att = torch.mean(self.batchnorm(disc_rgb),dim=1)
+            feat = disc_rgb[:,0]
+            feat_att = self.batchnorm(disc_rgb[:,0])
 
             return feat, feat_att
         elif modal == 2:
             disc_ir = self.disc_encoder(pixel_values=x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
-            feat = torch.mean(disc_ir, dim=1)
-            feat_att = torch.mean(self.batchnorm(disc_ir),dim=1)
+            feat = disc_ir[:,0]
+            feat_att = self.batchnorm(disc_ir[:,0])
 
             return feat, feat_att
