@@ -81,9 +81,10 @@ def main(opt):
     #make model
     np_model = Trans_VIReID(opt).to(device)
 
+    '''
     if os.path.exists(opt.checkpoint):
         np_model.load_state_dict(torch.load('./checkpoint/start.pth'))
-
+    '''
     model = nn.DataParallel(np_model, device_ids=[0, 1, 2, 3])
 
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, sampler=sampler)
@@ -98,14 +99,23 @@ def main(opt):
     if opt.optim == 'sgd':
         optimizer = optim.SGD(model.parameters())
     elif opt.optim == 'Adam':
-        optimizer = optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
+        optimizer = optim.AdamW([{'params': np_model.disc_encoder.parameters(), 'lr':0.0001},
+                                 {'params': np_model.excl_encoder.parameters(), 'lr':0.0001},
+                                 {'params': np_model.to_img.parameters()},
+                                 {'params': np_model.batchnorm.parameters()},
+                                 {'params': np_model.classifier.parameters()}], lr=opt.lr, weight_decay=opt.decay)
+        #optimizer = optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
+        
     
     for i in range(opt.epochs):
         trainloader = tqdm(dataloader)
+        np_model.train()
         model.train()
+        '''
         if i == 15 or 30:
             for g in optimizer.param_groups:
                 g['lr'] *= 0.1
+        '''
         
 
         for idx, (rgb, ir, label) in enumerate(trainloader):
@@ -117,7 +127,7 @@ def main(opt):
             out, out_feat, out_id, out_re, out_cross = model(rgb, ir)
             
             
-            tri_loss = criterion_tri(torch.cat((torch.mean(out[0],dim=1), torch.mean(out[1],dim=1)),dim=0), torch.cat((label, label)))
+            tri_loss = criterion_tri(torch.cat((out[0][:,0], out[1][:,0]),dim=0), torch.cat((label, label)))
             
             ##MAE loss for out_feat##
             #mae_loss = None
@@ -153,9 +163,10 @@ def main(opt):
         #test
         print("Testing model Accuracy...")
         np_model.eval()
+        model.eval()
         ptr = 0
         gall_feat = np.zeros((len(gallset),768))
-        gall_feat_att = np.zeros((len(gallset),768))
+        gall_feat_att = np.zeros((len(gallset),206))
         gall_label = np.zeros(len(gallset))
         with torch.no_grad():
             for idx, (img, label) in enumerate(gall_loader):
@@ -169,7 +180,7 @@ def main(opt):
     
         ptr = 0
         query_feat = np.zeros((len(queryset), 768))
-        query_feat_att = np.zeros((len(queryset), 768))
+        query_feat_att = np.zeros((len(queryset), 206))
         query_label = np.zeros(len(queryset))
         with torch.no_grad():
             for batch_idx, (input, label) in enumerate(query_loader):
@@ -210,7 +221,7 @@ if __name__ == "__main__":
     parser.add_argument('--decay',default=0.0005, type=float)
     parser.add_argument('--optim',default='Adam', type=str)
     parser.add_argument('--checkpoint',default='./checkpoint/')
-    parser.add_argument('--epochs', default=120)
+    parser.add_argument('--epochs', default=70)
     parser.add_argument('--log_path', default='./runs/')
     parser.add_argument('--trial',default=0,type=int)
 

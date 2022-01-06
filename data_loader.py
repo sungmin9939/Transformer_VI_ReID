@@ -100,7 +100,6 @@ class TestData(data.Dataset):
     def __getitem__(self, index):
         img = Image.open(self.images[index])
         label = self.labels[index]
-        print(self.images[index])
 
         img = self.transform(img)
 

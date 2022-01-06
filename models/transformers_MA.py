@@ -32,10 +32,10 @@ class Trans_VIReID(nn.Module):
         self.dim = opt.dim
         self.is_train = opt.is_train
         
-        vit_config = ViTConfig()
+        #vit_config = ViTConfig()
 
-        self.disc_encoder = ViTModel(vit_config)
-        self.excl_encoder = ViTModel(vit_config)
+        self.disc_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
+        self.excl_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
         #self.disc_encoder.embeddings.rgb_embeddings
 
         self.to_img = nn.Sequential(
@@ -96,12 +96,12 @@ class Trans_VIReID(nn.Module):
         elif modal == 1:
             disc_rgb = self.disc_encoder(pixel_values=x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
             feat = disc_rgb[:,0]
-            feat_att = self.batchnorm(disc_rgb[:,0])
+            feat_att =self.classifier(self.batchnorm(disc_rgb)[:,0])
 
             return feat, feat_att
         elif modal == 2:
             disc_ir = self.disc_encoder(pixel_values=x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
             feat = disc_ir[:,0]
-            feat_att = self.batchnorm(disc_ir[:,0])
+            feat_att =self.classifier(self.batchnorm(disc_ir)[:,0])
 
             return feat, feat_att
