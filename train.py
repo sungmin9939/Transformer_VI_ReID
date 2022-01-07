@@ -95,6 +95,7 @@ def main(opt):
     criterion_tri = TripletLoss_WRT()
     criterion_id = nn.CrossEntropyLoss()
     criterion_recon = nn.L1Loss()
+    pdist = nn.PairwiseDistance(2)
 
     if opt.optim == 'sgd':
         optimizer = optim.SGD(model.parameters())
@@ -111,11 +112,11 @@ def main(opt):
         trainloader = tqdm(dataloader)
         np_model.train()
         model.train()
-        '''
-        if i == 15 or 30:
+        
+        if i == 15 or i == 30:
             for g in optimizer.param_groups:
                 g['lr'] *= 0.1
-        '''
+        
         
 
         for idx, (rgb, ir, label) in enumerate(trainloader):
@@ -124,20 +125,35 @@ def main(opt):
             label = Variable(label).to(device)
             
 
-            out, out_feat, out_id, out_re, out_cross = model(rgb, ir)
+            out, out_feat, out_id, out_re, out_cross, out_center, out_aware_id = model(rgb, ir)
             
             
             tri_loss = criterion_tri(torch.cat((out[0][:,0], out[1][:,0]),dim=0), torch.cat((label, label)))
             
             ##MAE loss for out_feat##
-            #mae_loss = None
+            mae_loss = 0
+            rgb_feat_split = list(torch.split(out_feat[0], 4))
+            ir_feat_split = list(torch.split(out_feat[1], 4))
+            for j in range(out_center[0].size(0)):
+                rgb_distance = pdist(rgb_feat_split[j], out_center[0][j].expand(4,-1))
+                ir_distance = pdist(ir_feat_split[j], out_center[1][j].expand(4,-1))
+                total_dist = torch.cat((rgb_distance, ir_distance),dim=0)
+                
+                mae_loss += torch.sum(torch.log(1 + torch.exp(total_dist)))
+                
+            maid_loss = criterion_id(out_aware_id[0], label) + criterion_id(out_aware_id[1], label)
+                 
+                    
+                
+                
+            
             
             id_loss = criterion_id(out_id[0], label) + criterion_id(out_id[1], label)
             
             recon_loss = criterion_recon(rgb, out_re[0]) + criterion_recon(ir, out_re[1])
             cross_recon_loss = criterion_recon(rgb, out_cross[0]) + criterion_recon(ir, out_cross[1])
             
-            total_loss = tri_loss[0] + id_loss #+ recon_loss + cross_recon_loss
+            total_loss = tri_loss[0] + id_loss #+ recon_loss + cross_recon_loss + mae_loss + maid_loss
 
             optimizer.zero_grad()
             total_loss.backward()
