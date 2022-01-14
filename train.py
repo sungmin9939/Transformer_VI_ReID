@@ -130,6 +130,7 @@ def main(opt):
             
             tri_loss = criterion_tri(torch.cat((out[0][:,0], out[1][:,0]),dim=0), torch.cat((label, label)))
             
+            '''
             ##MAE loss for out_feat##
             mae_loss = 0
             rgb_feat_split = list(torch.split(out_feat[0], 4))
@@ -142,6 +143,7 @@ def main(opt):
                 mae_loss += torch.sum(torch.log(1 + torch.exp(total_dist)))
                 
             maid_loss = criterion_id(out_aware_id[0], label) + criterion_id(out_aware_id[1], label)
+            '''
                  
                     
                 
@@ -153,7 +155,7 @@ def main(opt):
             recon_loss = criterion_recon(rgb, out_re[0]) + criterion_recon(ir, out_re[1])
             cross_recon_loss = criterion_recon(rgb, out_cross[0]) + criterion_recon(ir, out_cross[1])
             
-            total_loss = tri_loss[0] + id_loss #+ recon_loss + cross_recon_loss + mae_loss + maid_loss
+            total_loss = tri_loss[0] + id_loss + recon_loss + cross_recon_loss #+ mae_loss + maid_loss
 
             optimizer.zero_grad()
             total_loss.backward()
