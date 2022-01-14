@@ -1,6 +1,11 @@
 import torch
+import torch.nn as nn
 
-a = torch.ones(1,10)
+a = torch.randn(8,199,768)
+b = torch.randn(8,199,768)
 
-print(a.expand(4,-1))
+cri = nn.L1Loss()
 
+c = cri(a,b)
+
+print(c)

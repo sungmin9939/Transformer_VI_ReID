@@ -30,9 +30,12 @@ def main(opt):
     #Loss recoder
     loss_recon = AverageMeter()
     loss_crecon = AverageMeter()
+    loss_cyrecon = AverageMeter()
+    loss_corecon = AverageMeter()
     loss_tri = AverageMeter()
     loss_id = AverageMeter()
     loss_train = AverageMeter()
+
 
     #Image Transformation
     transform_train = transforms.Compose([
@@ -125,10 +128,10 @@ def main(opt):
             label = Variable(label).to(device)
             
 
-            out, out_feat, out_id, out_re, out_cross, out_center, out_aware_id = model(rgb, ir)
+            out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id = model(rgb, ir)
             
             
-            tri_loss = criterion_tri(torch.cat((out[0][:,0], out[1][:,0]),dim=0), torch.cat((label, label)))
+            tri_loss = criterion_tri(torch.cat((out_disc[0][:,0], out_disc[1][:,0]),dim=0), torch.cat((label, label)))
             
             '''
             ##MAE loss for out_feat##
@@ -144,18 +147,18 @@ def main(opt):
                 
             maid_loss = criterion_id(out_aware_id[0], label) + criterion_id(out_aware_id[1], label)
             '''
-                 
-                    
-                
-                
             
             
             id_loss = criterion_id(out_id[0], label) + criterion_id(out_id[1], label)
             
             recon_loss = criterion_recon(rgb, out_re[0]) + criterion_recon(ir, out_re[1])
             cross_recon_loss = criterion_recon(rgb, out_cross[0]) + criterion_recon(ir, out_cross[1])
+            cycle_recon_loss = criterion_recon(rgb, out_hat[0]) + criterion_recon(ir, out_hat[1])
+
+            code_recon_loss = criterion_recon(out_disc[0], out_disc_hat[0]) + criterion_recon(out_excl[0], out_excl_hat[0]) + \
+                criterion_recon(out_disc[1], out_disc_hat[1]) + criterion_recon(out_excl[1], out_excl_hat[1])
             
-            total_loss = tri_loss[0] + id_loss + recon_loss + cross_recon_loss #+ mae_loss + maid_loss
+            total_loss = tri_loss[0] + id_loss + recon_loss + cross_recon_loss + cycle_recon_loss + code_recon_loss #+ mae_loss + maid_loss
 
             optimizer.zero_grad()
             total_loss.backward()
@@ -163,6 +166,8 @@ def main(opt):
 
             loss_recon.update(recon_loss.item(), rgb.size(0)*2)
             loss_crecon.update(cross_recon_loss.item(), rgb.size(0)*2)
+            loss_cyrecon.update(cycle_recon_loss.item(), rgb.size(0)*2)
+            loss_corecon.update(code_recon_loss.item(), rgb.size(0)*2)
             loss_id.update(id_loss, rgb.size(0)*2)
             loss_tri.update(tri_loss[0], rgb.size(0)*2)
             loss_train.update(total_loss, rgb.size(0)*2)
@@ -170,10 +175,14 @@ def main(opt):
         writer.add_scalar('train_loss', loss_train.avg, i)
         writer.add_scalar('recon_loss', loss_recon.avg, i)
         writer.add_scalar('cross_recon_loss', loss_crecon.avg, i)
+        writer.add_scalar('cycle_recon_loss',loss_cyrecon.avg,i)
+        writer.add_scalar('code_recon_loss',loss_corecon.avg, i)
         writer.add_scalar('tri_loss', loss_tri.avg, i)
         writer.add_scalar('id_loss', loss_id.avg, i)
         print(
-            'epoch: {}\ntrain_loss: {}\nrecon_loss: {}\ncross_recon_loss: {}\ntri_loss: {}\nid_loss: {}'.format(i, loss_train.avg, loss_recon.avg, loss_crecon.avg, loss_tri.avg, loss_id.avg)
+            'epoch: {}\ntrain_loss: {}\nrecon_loss: {}\ncross_recon_loss: {}\ncycle_recon_loss: {}\n\
+            code_recon_loss: {}\ntri_loss: {}\nid_loss: {}'.format(i, \
+                loss_train.avg, loss_recon.avg, loss_crecon.avg, loss_cyrecon.avg, loss_corecon.avg, loss_tri.avg, loss_id.avg)
         )
         if i % 20 == 0 and i != 0:
             torch.save(model.state_dict(), './checkpoint/exp{}_epoch{}.pth'.format(opt.trial, i))

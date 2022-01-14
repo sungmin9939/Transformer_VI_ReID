@@ -96,12 +96,23 @@ class Trans_VIReID(nn.Module):
             rgb_id = self.classifier(feat_rgb[:,0])
             ir_id = self.classifier(feat_ir[:,0])
 
+            ##reconstruction part
             re_rgb = self.to_img(disc_rgb[:,1:] + excl_rgb[:,1:])
             re_ir = self.to_img(disc_ir[:,1:] + excl_ir[:,1:])
 
             dr_ei = self.to_img(disc_rgb[:,1:] + excl_ir[:,1:])
             di_er = self.to_img(disc_ir[:,1:] + excl_rgb[:,1:])
-            
+
+            disc_rgb_hat = self.disc_encoder(pixel_values=dr_ei, modal=2, interpolate_pos_encoding=True).last_hidden_state
+            disc_ir_hat = self.disc_encoder(pixel_values=di_er, modal=1, interpolate_pos_encoding=True).last_hidden_state
+
+            excl_rgb_hat = self.excl_encoder(di_er, modal=1, interpolate_pos_encoding=True).last_hidden_state
+            excl_ir_hat = self.excl_encoder(dr_ei, modal=2, interpolate_pos_encoding=True).last_hidden_state
+
+            hat_rgb = self.to_img(disc_rgb_hat[:,1:] + excl_rgb_hat[:,1:])
+            hat_ir = self.to_img(disc_ir_hat[:,1:] + excl_ir_hat[:,1:])
+
+            ##modality embedding knowledge
             rgb_knowledge = self.modality_knowledge(self.disc_encoder.embeddings.rgb_embeddings)
             ir_knowledge = self.modality_knowledge(self.disc_encoder.embeddings.ir_embeddings)
             
@@ -128,7 +139,18 @@ class Trans_VIReID(nn.Module):
             
             
             
-            return (disc_rgb, disc_ir), (feat_rgb[:,0]-rgb_knowledge, feat_ir[:,0]-ir_knowledge), (rgb_id, ir_id), (re_rgb, re_ir), (di_er, dr_ei) , (rgb_feat_center, ir_feat_center), (rgb_knowledged_id, ir_knowledged_id)
+            return (disc_rgb, disc_ir),\
+                (excl_rgb, disc_ir),\
+                (feat_rgb[:,0]-rgb_knowledge, feat_ir[:,0]-ir_knowledge),\
+                (rgb_id, ir_id),\
+                (re_rgb, re_ir),\
+                (di_er, dr_ei),\
+                (disc_rgb_hat, disc_ir_hat),\
+                (excl_rgb_hat, excl_ir_hat),\
+                (hat_rgb, hat_ir),\
+                (rgb_feat_center, ir_feat_center),\
+                (rgb_knowledged_id, ir_knowledged_id)\
+                
             '''
             recon_loss = self.recon_loss(re_rgb, x_rgb) + self.recon_loss(re_ir, x_ir)
             cross_recon_loss = self.recon_loss(x_rgb, di_er) + self.recon_loss(x_ir, dr_ei)
