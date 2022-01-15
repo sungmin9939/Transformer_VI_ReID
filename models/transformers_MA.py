@@ -122,15 +122,16 @@ class Trans_VIReID(nn.Module):
             
             for chunk in list(torch.split(feat_rgb[:,0], 4)):  #feat_rgb[:,0] (batch_size, 768) chunk (batch_size/4, 768)
                 if rgb_feat_center is None:
-                    rgb_feat_center = torch.mean(chunk - rgb_knowledge, dim=0)
+                    rgb_feat_center = torch.mean(chunk - rgb_knowledge, dim=0, keepdim=True)
                 else:
-                    rgb_feat_center = torch.cat((rgb_feat_center, torch.mean(chunk-rgb_knowledge, dim=0)), dim=0)
+                    rgb_feat_center = torch.cat((rgb_feat_center, torch.mean(chunk-rgb_knowledge, dim=0, keepdim=True)), dim=0)
+                
                     
             for chunk in list(torch.split(feat_ir[:,0],4)):
                 if ir_feat_center is None:
-                    ir_feat_center = torch.mean(chunk - ir_knowledge, dim=0)
+                    ir_feat_center = torch.mean(chunk - ir_knowledge, dim=0, keepdim=True)
                 else:
-                    ir_feat_center = torch.cat((ir_feat_center, torch.mean(chunk-ir_knowledge, dim=0)), dim=0)
+                    ir_feat_center = torch.cat((ir_feat_center, torch.mean(chunk-ir_knowledge, dim=0, keepdim=True)), dim=0)
             
             #feat_center (batch_size/4, 768)
             

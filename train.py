@@ -231,6 +231,15 @@ def main(opt):
         writer.add_scalar('rank1_att', cmc_att[0], i)
         writer.add_scalar('mAP_att', mAP_att, i)
         writer.add_scalar('mINP_att', mINP_att, i)
+        if i % 10 == 0:
+            writer.add_image('rgb',rgb[0],i)
+            writer.add_image('ir',ir[0],i)
+            writer.add_image('re_rgb',out_re[0][0],i)
+            writer.add_image('re_ir',out_re[1][0],i)
+            writer.add_image('cross_rgb',out_cross[0][0],i)
+            writer.add_image('cross_ir',out_cross[1][0],i)
+            writer.add_image('cycle_rgb',out_hat[0][0],i)
+            writer.add_image('cycle_ir',out_hat[1][0],i)
 
         print('rank1: {}'.format(cmc[0]))
         print('mAP: {}'.format(mAP))
