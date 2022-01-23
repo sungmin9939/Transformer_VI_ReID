@@ -42,16 +42,23 @@ def main(opt):
         transforms.ToTensor(),
         transforms.Resize((256,128)),
         transforms.RandomHorizontalFlip(),
-        transforms.RandomErasing(),
-        
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
+    transform_corruption = transforms.Compose([
+        transforms.RandomErasing(),
+    ])
+    
         
     transform_test = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((256, 128)),
         
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+    ])
+    
+    invTrans = transforms.Compose([
+        transforms.Normalize(mean = [ 0., 0., 0. ], std = [ 1/0.229, 1/0.224, 1/0.225 ]),
+        transforms.Normalize(mean = [ -0.485, -0.456, -0.406 ], std = [ 1., 1., 1. ]),
     ])
 
 
@@ -107,7 +114,7 @@ def main(opt):
                                  {'params': np_model.excl_encoder.parameters(), 'lr':0.0001},
                                  {'params': np_model.to_img.parameters()},
                                  {'params': np_model.batchnorm.parameters()},
-                                 {'params': np_model.classifier.parameters()}], lr=opt.lr, weight_decay=opt.decay)
+                                 {'params': np_model.classifier.parameters(), 'lr': 0.003}], lr=opt.lr, weight_decay=opt.decay)
         #optimizer = optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
         
     
@@ -123,13 +130,19 @@ def main(opt):
         
 
         for idx, (rgb, ir, label) in enumerate(trainloader):
+            trans_rgb = transform_corruption(rgb)
+            trans_ir = transform_corruption(ir)
+            
             rgb = Variable(rgb).to(device)
             ir = Variable(ir).to(device)
+            trans_rgb = Variable(trans_rgb).to(device)
+            trans_ir = Variable(trans_ir).to(device)
+            
             label = Variable(label).to(device)
             
 
-            out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id = model(rgb, ir)
-            
+            out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id = model(trans_rgb, trans_ir)
+            del trans_rgb, trans_ir
             
             tri_loss = criterion_tri(torch.cat((out_disc[0][:,0], out_disc[1][:,0]),dim=0), torch.cat((label, label)))
             
@@ -232,14 +245,14 @@ def main(opt):
         writer.add_scalar('mAP_att', mAP_att, i)
         writer.add_scalar('mINP_att', mINP_att, i)
         if i % 10 == 0:
-            writer.add_image('rgb',rgb[0],i)
-            writer.add_image('ir',ir[0],i)
-            writer.add_image('re_rgb',out_re[0][0],i)
-            writer.add_image('re_ir',out_re[1][0],i)
-            writer.add_image('cross_rgb',out_cross[0][0],i)
-            writer.add_image('cross_ir',out_cross[1][0],i)
-            writer.add_image('cycle_rgb',out_hat[0][0],i)
-            writer.add_image('cycle_ir',out_hat[1][0],i)
+            writer.add_image('rgb',invTrans(rgb[0]),i)
+            writer.add_image('ir',invTrans(ir[0]),i)
+            writer.add_image('re_rgb',invTrans(out_re[0][0]),i)
+            writer.add_image('re_ir',invTrans(out_re[1][0]),i)
+            writer.add_image('cross_rgb',invTrans(out_cross[0][0]),i)
+            writer.add_image('cross_ir',invTrans(out_cross[1][0]),i)
+            writer.add_image('cycle_rgb',invTrans(out_hat[0][0]),i)
+            writer.add_image('cycle_ir',invTrans(out_hat[1][0]),i)
 
         print('rank1: {}'.format(cmc[0]))
         print('mAP: {}'.format(mAP))
@@ -259,7 +272,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=70)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=0,type=int)
+    parser.add_argument('--trial',default=1,type=int)
 
     parser.add_argument('--dim', default=768)
     parser.add_argument('--img_h', default=256, type=int)
