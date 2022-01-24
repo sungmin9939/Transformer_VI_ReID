@@ -54,12 +54,14 @@ class Trans_VIReID(nn.Module):
         
         self.in_channel = opt.in_channel
         self.dim = opt.dim
-        self.is_train = opt.is_train
-        
-        #vit_config = ViTConfig()
-
+        '''
+        vit_config = ViTConfig()
+        self.disc_encoder = ViTModel(vit_config)
+        self.excl_encoder = ViTModel(vit_config)
+        '''
         self.disc_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
         self.excl_encoder = ViTModel.from_pretrained('google/vit-base-patch16-224-in21k')
+        
         #self.disc_encoder.embeddings.rgb_embeddings
 
         self.to_img = nn.Sequential(

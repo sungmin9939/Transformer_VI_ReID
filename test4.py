@@ -9,24 +9,24 @@ from models.transformers_MA import Trans_VIReID
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset',default='RegDB', type=str)
 parser.add_argument('--lr', default=0.001, type=float)
-parser.add_argument('--decay',default=0.0001, type=float)
+parser.add_argument('--decay',default=0.0005, type=float)
 parser.add_argument('--optim',default='Adam', type=str)
 parser.add_argument('--checkpoint',default='./checkpoint/')
-parser.add_argument('--epochs', default=1000)
+parser.add_argument('--epochs', default=70)
 parser.add_argument('--log_path', default='./runs/')
-parser.add_argument('--trial',default=3,type=int)
+parser.add_argument('--trial',default=2,type=int)
 
 parser.add_argument('--dim', default=768)
-parser.add_argument('--heads', default=4)
-parser.add_argument('--mlp_ratio', default=4)
-parser.add_argument('--drop_rate', default=0.1, type=float)
 parser.add_argument('--img_h', default=256, type=int)
 parser.add_argument('--img_w',default=128, type=int)
 parser.add_argument('--patch_size',default=16)
 parser.add_argument('--in_channel',default=3)
-parser.add_argument('--is_train',default=True)
-parser.add_argument('--batch_size',default=128, type=int)
+parser.add_argument('--recon', default=False, type=bool)
+parser.add_argument('--batch_size',default=32, type=int)
 parser.add_argument('--margin',default=0.5)
+    
+
+opt = parser.parse_args()
 
 
 opt = parser.parse_args()

@@ -31,26 +31,26 @@ def test(opt):
     ])
 
     device = torch.device('cuda:0')
-    
+    '''
     gallset = TestData_dum('./datasets/RegDB_01/train_py','T', transform_test)
     queryset = TestData_dum('./datasets/RegDB_01/train_py','V', transform_test)
     '''
+    
     gallset = TestData('./datasets/RegDB_01','gallery', transform_test)
     queryset = TestData('./datasets/RegDB_01','query', transform_test)
-    '''
+    
     
     gall_loader = DataLoader(gallset, batch_size=opt.batch_size, shuffle=False)
     query_loader = DataLoader(queryset, batch_size=opt.batch_size, shuffle=False)
 
     model = Trans_VIReID(opt).to(device)
     model.eval()
-
-    if os.path.exists(opt.checkpoint):
-        model.load_state_dict(torch.load('./checkpoint/start.pth'))
+    
+    model.load_state_dict(torch.load('./checkpoint/start.pth'))
         
     ptr = 0
     gall_feat = np.zeros((len(gallset), 768))
-    gall_feat_att = np.zeros((len(gallset), 768))
+    gall_feat_att = np.zeros((len(gallset), 206))
     gall_label = np.zeros(len(gallset))
     with torch.no_grad():
         for idx, (img, label) in enumerate(gall_loader):
@@ -64,7 +64,7 @@ def test(opt):
 
     ptr = 0
     query_feat = np.zeros((len(queryset), 768))
-    query_feat_att = np.zeros((len(queryset), 768))
+    query_feat_att = np.zeros((len(queryset), 206))
     query_label = np.zeros(len(queryset))
     with torch.no_grad():
         for batch_idx, (input, label) in enumerate(query_loader):
@@ -98,20 +98,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--dataset',default='RegDB', type=str)
     parser.add_argument('--lr', default=0.001, type=float)
-    parser.add_argument('--decay',default=0.0001, type=float)
+    parser.add_argument('--decay',default=0.0005, type=float)
     parser.add_argument('--optim',default='Adam', type=str)
     parser.add_argument('--checkpoint',default='./checkpoint/')
-    parser.add_argument('--epochs', default=1000)
+    parser.add_argument('--epochs', default=70)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=0,type=int)
+    parser.add_argument('--trial',default=2,type=int)
 
     parser.add_argument('--dim', default=768)
     parser.add_argument('--img_h', default=256, type=int)
     parser.add_argument('--img_w',default=128, type=int)
     parser.add_argument('--patch_size',default=16)
     parser.add_argument('--in_channel',default=3)
-    parser.add_argument('--is_train',default=True)
-    parser.add_argument('--batch_size',default=16, type=int)
+    parser.add_argument('--recon', default=False, type=bool)
+    parser.add_argument('--batch_size',default=32, type=int)
     parser.add_argument('--margin',default=0.5)
     
 

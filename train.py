@@ -114,7 +114,7 @@ def main(opt):
                                  {'params': np_model.excl_encoder.parameters(), 'lr':0.0001},
                                  {'params': np_model.to_img.parameters()},
                                  {'params': np_model.batchnorm.parameters()},
-                                 {'params': np_model.classifier.parameters(), 'lr': 0.003}], lr=opt.lr, weight_decay=opt.decay)
+                                 {'params': np_model.classifier.parameters()}], lr=opt.lr, weight_decay=opt.decay)
         #optimizer = optim.AdamW(model.parameters(), lr=opt.lr, weight_decay=opt.decay)
         
     
@@ -145,6 +145,9 @@ def main(opt):
             del trans_rgb, trans_ir
             
             tri_loss = criterion_tri(torch.cat((out_disc[0][:,0], out_disc[1][:,0]),dim=0), torch.cat((label, label)))
+            id_loss = criterion_id(out_id[0], label) + criterion_id(out_id[1], label)
+            
+            total_loss = tri_loss[0] + id_loss
             
             '''
             ##MAE loss for out_feat##
@@ -162,43 +165,54 @@ def main(opt):
             '''
             
             
-            id_loss = criterion_id(out_id[0], label) + criterion_id(out_id[1], label)
+            if opt.recon:
             
-            recon_loss = criterion_recon(rgb, out_re[0]) + criterion_recon(ir, out_re[1])
-            cross_recon_loss = criterion_recon(rgb, out_cross[0]) + criterion_recon(ir, out_cross[1])
-            cycle_recon_loss = criterion_recon(rgb, out_hat[0]) + criterion_recon(ir, out_hat[1])
+                recon_loss = criterion_recon(rgb, out_re[0]) + criterion_recon(ir, out_re[1])
+                cross_recon_loss = criterion_recon(rgb, out_cross[0]) + criterion_recon(ir, out_cross[1])
+                cycle_recon_loss = criterion_recon(rgb, out_hat[0]) + criterion_recon(ir, out_hat[1])
 
-            code_recon_loss = criterion_recon(out_disc[0], out_disc_hat[0]) + criterion_recon(out_excl[0], out_excl_hat[0]) + \
-                criterion_recon(out_disc[1], out_disc_hat[1]) + criterion_recon(out_excl[1], out_excl_hat[1])
-            
-            total_loss = tri_loss[0] + id_loss + recon_loss + cross_recon_loss + cycle_recon_loss + code_recon_loss #+ mae_loss + maid_loss
+                code_recon_loss = criterion_recon(out_disc[0], out_disc_hat[0]) + criterion_recon(out_excl[0], out_excl_hat[0]) + \
+                    criterion_recon(out_disc[1], out_disc_hat[1]) + criterion_recon(out_excl[1], out_excl_hat[1])
+                
+                total_loss = 2 * (recon_loss + cross_recon_loss + cycle_recon_loss + code_recon_loss)
+            else:
+                recon_loss = 0
+                cross_recon_loss = 0
+                cycle_recon_loss = 0
+                code_recon_loss = 0
 
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
 
-            loss_recon.update(recon_loss.item(), rgb.size(0)*2)
-            loss_crecon.update(cross_recon_loss.item(), rgb.size(0)*2)
-            loss_cyrecon.update(cycle_recon_loss.item(), rgb.size(0)*2)
-            loss_corecon.update(code_recon_loss.item(), rgb.size(0)*2)
+            if opt.recon:                
+                loss_recon.update(recon_loss.item(), rgb.size(0)*2)
+                loss_crecon.update(cross_recon_loss.item(), rgb.size(0)*2)
+                loss_cyrecon.update(cycle_recon_loss.item(), rgb.size(0)*2)
+                loss_corecon.update(code_recon_loss.item(), rgb.size(0)*2)
+                
             loss_id.update(id_loss, rgb.size(0)*2)
             loss_tri.update(tri_loss[0], rgb.size(0)*2)
             loss_train.update(total_loss, rgb.size(0)*2)
+            
+            del out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id
 
         writer.add_scalar('train_loss', loss_train.avg, i)
-        writer.add_scalar('recon_loss', loss_recon.avg, i)
-        writer.add_scalar('cross_recon_loss', loss_crecon.avg, i)
-        writer.add_scalar('cycle_recon_loss',loss_cyrecon.avg,i)
-        writer.add_scalar('code_recon_loss',loss_corecon.avg, i)
         writer.add_scalar('tri_loss', loss_tri.avg, i)
         writer.add_scalar('id_loss', loss_id.avg, i)
+        if opt.recon:
+            writer.add_scalar('recon_loss', loss_recon.avg, i)
+            writer.add_scalar('cross_recon_loss', loss_crecon.avg, i)
+            writer.add_scalar('cycle_recon_loss',loss_cyrecon.avg,i)
+            writer.add_scalar('code_recon_loss',loss_corecon.avg, i)
+        
         print(
             'epoch: {}\ntrain_loss: {}\nrecon_loss: {}\ncross_recon_loss: {}\ncycle_recon_loss: {}\n\
             code_recon_loss: {}\ntri_loss: {}\nid_loss: {}'.format(i, \
                 loss_train.avg, loss_recon.avg, loss_crecon.avg, loss_cyrecon.avg, loss_corecon.avg, loss_tri.avg, loss_id.avg)
         )
         if i % 20 == 0 and i != 0:
-            torch.save(model.state_dict(), './checkpoint/exp{}_epoch{}.pth'.format(opt.trial, i))
+            torch.save(np_model.state_dict(), './checkpoint/exp{}_epoch{}.pth'.format(opt.trial, i))
 
         #test
         print("Testing model Accuracy...")
@@ -244,16 +258,17 @@ def main(opt):
         writer.add_scalar('rank1_att', cmc_att[0], i)
         writer.add_scalar('mAP_att', mAP_att, i)
         writer.add_scalar('mINP_att', mINP_att, i)
-        if i % 10 == 0:
-            writer.add_image('rgb',invTrans(rgb[0]),i)
-            writer.add_image('ir',invTrans(ir[0]),i)
-            writer.add_image('re_rgb',invTrans(out_re[0][0]),i)
-            writer.add_image('re_ir',invTrans(out_re[1][0]),i)
-            writer.add_image('cross_rgb',invTrans(out_cross[0][0]),i)
-            writer.add_image('cross_ir',invTrans(out_cross[1][0]),i)
-            writer.add_image('cycle_rgb',invTrans(out_hat[0][0]),i)
-            writer.add_image('cycle_ir',invTrans(out_hat[1][0]),i)
-
+        if opt.recon and i % 5 == 0:
+            for j in range(16):
+                writer.add_image('rgb_{}'.format(i),invTrans(rgb[j]),j)
+                writer.add_image('ir_{}'.format(i),invTrans(ir[j]),j)
+                writer.add_image('re_rgb_{}'.format(i),invTrans(out_re[0][j]),j)
+                writer.add_image('re_ir_{}'.format(i),invTrans(out_re[1][j]),j)
+                writer.add_image('cross_rgb_{}'.format(i),invTrans(out_cross[0][j]),j)
+                writer.add_image('cross_ir_{}'.format(i),invTrans(out_cross[1][j]),j)
+                writer.add_image('cycle_rgb_{}'.format(i),invTrans(out_hat[0][j]),j)
+                writer.add_image('cycle_ir_{}'.format(i),invTrans(out_hat[1][j]),j)
+            
         print('rank1: {}'.format(cmc[0]))
         print('mAP: {}'.format(mAP))
         print('mINP: {}'.format(mINP))
@@ -272,14 +287,14 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=70)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=1,type=int)
+    parser.add_argument('--trial',default=2,type=int)
 
     parser.add_argument('--dim', default=768)
     parser.add_argument('--img_h', default=256, type=int)
     parser.add_argument('--img_w',default=128, type=int)
     parser.add_argument('--patch_size',default=16)
     parser.add_argument('--in_channel',default=3)
-    parser.add_argument('--is_train',default=True)
+    parser.add_argument('--recon', default=False, type=bool)
     parser.add_argument('--batch_size',default=32, type=int)
     parser.add_argument('--margin',default=0.5)
     
