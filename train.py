@@ -41,7 +41,7 @@ def main(opt):
     transform_train = transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((256,128)),
-        transforms.RandomHorizontalFlip(),
+        #transforms.RandomHorizontalFlip(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
     transform_corruption = transforms.Compose([
@@ -130,19 +130,21 @@ def main(opt):
         
 
         for idx, (rgb, ir, label) in enumerate(trainloader):
+            '''
             trans_rgb = transform_corruption(rgb)
             trans_ir = transform_corruption(ir)
-            
-            rgb = Variable(rgb).to(device)
-            ir = Variable(ir).to(device)
             trans_rgb = Variable(trans_rgb).to(device)
             trans_ir = Variable(trans_ir).to(device)
+            '''
+            rgb = Variable(rgb).to(device)
+            ir = Variable(ir).to(device)
+            
             
             label = Variable(label).to(device)
             
 
-            out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id = model(trans_rgb, trans_ir)
-            del trans_rgb, trans_ir
+            out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id = model(rgb, ir)
+            #del trans_rgb, trans_ir
             
             tri_loss = criterion_tri(torch.cat((out_disc[0][:,0], out_disc[1][:,0]),dim=0), torch.cat((label, label)))
             id_loss = criterion_id(out_id[0], label) + criterion_id(out_id[1], label)
@@ -174,13 +176,15 @@ def main(opt):
                 code_recon_loss = criterion_recon(out_disc[0], out_disc_hat[0]) + criterion_recon(out_excl[0], out_excl_hat[0]) + \
                     criterion_recon(out_disc[1], out_disc_hat[1]) + criterion_recon(out_excl[1], out_excl_hat[1])
                 
-                total_loss = 2 * (recon_loss + cross_recon_loss + cycle_recon_loss + code_recon_loss)
+                total_loss += 2 * (recon_loss + cross_recon_loss + cycle_recon_loss + code_recon_loss)
             else:
                 recon_loss = 0
                 cross_recon_loss = 0
                 cycle_recon_loss = 0
                 code_recon_loss = 0
-
+                
+            #del out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id
+            
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
@@ -195,7 +199,7 @@ def main(opt):
             loss_tri.update(tri_loss[0], rgb.size(0)*2)
             loss_train.update(total_loss, rgb.size(0)*2)
             
-            del out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id
+            
 
         writer.add_scalar('train_loss', loss_train.avg, i)
         writer.add_scalar('tri_loss', loss_tri.avg, i)
@@ -287,14 +291,14 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=70)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=2,type=int)
+    parser.add_argument('--trial',default=3,type=int)
 
     parser.add_argument('--dim', default=768)
     parser.add_argument('--img_h', default=256, type=int)
     parser.add_argument('--img_w',default=128, type=int)
     parser.add_argument('--patch_size',default=16)
     parser.add_argument('--in_channel',default=3)
-    parser.add_argument('--recon', default=False, type=bool)
+    parser.add_argument('--recon', default=True, type=bool)
     parser.add_argument('--batch_size',default=32, type=int)
     parser.add_argument('--margin',default=0.5)
     

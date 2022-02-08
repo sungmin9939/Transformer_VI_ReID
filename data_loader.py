@@ -100,10 +100,10 @@ class TestData(data.Dataset):
     def __getitem__(self, index):
         img = Image.open(self.images[index])
         label = self.labels[index]
-
         img = self.transform(img)
+        img_name = self.images[index]
 
-        return img, int(label)
+        return img, int(label), img_name
 
     def __len__(self):
         return len(self.images)

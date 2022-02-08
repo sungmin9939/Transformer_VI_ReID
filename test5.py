@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
+a = np.zeros((3,3))
 
-a = torch.randn(9,100)
-b = torch.split(a, 4)
-
-print(b[2].shape)
+a[0,0] = 'test'

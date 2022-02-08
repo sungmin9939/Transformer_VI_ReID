@@ -31,6 +31,7 @@ def test(opt):
     ])
 
     device = torch.device('cuda:0')
+    writer = SummaryWriter('./test_result')
     '''
     gallset = TestData_dum('./datasets/RegDB_01/train_py','T', transform_test)
     queryset = TestData_dum('./datasets/RegDB_01/train_py','V', transform_test)
@@ -46,42 +47,47 @@ def test(opt):
     model = Trans_VIReID(opt).to(device)
     model.eval()
     
-    model.load_state_dict(torch.load('./checkpoint/start.pth'))
+    model.load_state_dict(torch.load('./checkpoint/exp3_epoch60.pth'))
         
     ptr = 0
     gall_feat = np.zeros((len(gallset), 768))
     gall_feat_att = np.zeros((len(gallset), 206))
     gall_label = np.zeros(len(gallset))
+    gall_names = []
     with torch.no_grad():
-        for idx, (img, label) in enumerate(gall_loader):
+        for idx, (img, label, img_name) in enumerate(gall_loader):
             batch_num = img.size(0)
             img = Variable(img).to(device)
             feat, feat_att = model(img,img,modal=2)
             gall_feat[ptr:ptr + batch_num, :] = feat.detach().cpu().numpy()
             gall_feat_att[ptr:ptr + batch_num, :] = feat_att.detach().cpu().numpy()
             gall_label[ptr:ptr + batch_num] = label.numpy()
+            gall_names.extend(list(img_name))
             ptr = ptr + batch_num
 
     ptr = 0
     query_feat = np.zeros((len(queryset), 768))
     query_feat_att = np.zeros((len(queryset), 206))
     query_label = np.zeros(len(queryset))
+    query_names = []
     with torch.no_grad():
-        for batch_idx, (input, label) in enumerate(query_loader):
+        for batch_idx, (input, label, img_name) in enumerate(query_loader):
             batch_num = input.size(0)
             input = Variable(input).to(device)
             feat, feat_att = model(input, input, modal=1)
             query_feat[ptr:ptr + batch_num, :] = feat.detach().cpu().numpy()
             query_feat_att[ptr:ptr + batch_num, :] = feat_att.detach().cpu().numpy()
             query_label[ptr:ptr + batch_num] = label.numpy()
+            query_names.extend(list(img_name))
             ptr = ptr + batch_num
 
     distmat = np.matmul(query_feat, np.transpose(gall_feat))
     distmat_att = np.matmul(query_feat_att, np.transpose(gall_feat_att))
 
-    cmc, mAP, mINP      = eval_regdb(-distmat, query_label, gall_label)
-    cmc_att, mAP_att, mINP_att  = eval_regdb(-distmat_att, query_label, gall_label)
+    cmc, mAP, mINP      = eval_regdb(-distmat, query_label, gall_label, query_names, gall_names)
+    cmc_att, mAP_att, mINP_att  = eval_regdb(-distmat_att, query_label, gall_label, query_names, gall_names)
 
+    
 
     print('rank1: {}'.format(cmc[0]))
     print('mAP: {}'.format(mAP))
