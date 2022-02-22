@@ -35,6 +35,29 @@ def weights_init_classifier(m):
             nn.init.constant_(m.bias, 0.0)
         '''
 
+class ClassBlock(nn.Module):
+    def __init__(self, input_dim, class_num, droprate=0.5, num_bottleneck=512, w_lrelu=0.2):
+        super(ClassBlock, self).__init__()
+        
+        add_block = []
+        add_block += [nn.Linear(input_dim, num_bottleneck)]
+        add_block += [nn.BatchNorm1d(num_bottleneck)]
+        add_block += [nn.LeakyReLU(w_lrelu, inplace=True)]
+        if droprate>0:
+            add_block += [nn.Dropout(p=droprate)]
+        add_block = nn.Sequential(*add_block)
+        add_block.apply(weights_init_kaiming)
+        
+        classifier = nn.Linear(num_bottleneck, class_num)
+        classifier.apply(weights_init_classifier)
+
+        self.add_block = add_block
+        self.classifier = classifier
+        
+    def forward(self, x):
+        x = self.add_block(x)
+        return self.classifier(x)
+
 
 
 class Trans_VIReID(nn.Module):
@@ -70,7 +93,8 @@ class Trans_VIReID(nn.Module):
         )
 
         self.batchnorm = nn.BatchNorm1d(self.sclaed_w * self.scaled_h+1)
-        self.classifier = nn.Linear(self.dim, self.num_classes)
+        #self.classifier = nn.Linear(self.dim, self.num_classes)
+        self.classifier = ClassBlock(self.dim, self.num_classes)
         self.modality_knowledge = nn.Linear(1, self.dim)
         
         
@@ -122,6 +146,7 @@ class Trans_VIReID(nn.Module):
             rgb_feat_center = None
             ir_feat_center = None
             
+            '''
             for chunk in list(torch.split(feat_rgb[:,0], 4)):  #feat_rgb[:,0] (batch_size, 768) chunk (batch_size/4, 768)
                 if rgb_feat_center is None:
                     rgb_feat_center = torch.mean(chunk - rgb_knowledge, dim=0, keepdim=True)
@@ -136,6 +161,7 @@ class Trans_VIReID(nn.Module):
                     ir_feat_center = torch.cat((ir_feat_center, torch.mean(chunk-ir_knowledge, dim=0, keepdim=True)), dim=0)
             
             #feat_center (batch_size/4, 768)
+            '''
             
             rgb_knowledged_id = self.classifier(feat_rgb[:,0] - rgb_knowledge)
             ir_knowledged_id = self.classifier(feat_ir[:,0] - ir_knowledge)

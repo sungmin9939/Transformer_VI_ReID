@@ -1,7 +1,10 @@
+from importlib.metadata import requires
 import torch
 import numpy as np
 
-a = np.array([[1,2,3],[4,5,6]])
-b = np.array([True,True,True])
+device = torch.device('cuda:0')
 
-print(a[0][b])
+a = torch.FloatTensor(1).to(device)
+b = torch.FloatTensor(1).to(device)
+c = a+b
+print(a)

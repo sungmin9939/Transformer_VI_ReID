@@ -87,7 +87,7 @@ class RegDBData(data.Dataset):
 class TestData(data.Dataset):
     def __init__(self, data_dir, mode='gallery', transform=None):
         self.data_dir = data_dir + '/' + mode
-        self.identities = os.listdir(self.data_dir)
+        self.identities = sorted(os.listdir(self.data_dir))
         self.images = []
         self.labels = []
         self.transform = transform

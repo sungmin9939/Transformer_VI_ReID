@@ -9,9 +9,11 @@ from models.transformers_MA import Trans_VIReID
 from utils import *
 import torch.utils.data as data
 import sys
+import torchvision.utils as vutils
 import argparse
 import torch.optim as optim
 import torch
+import time
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.autograd import Variable
@@ -81,6 +83,11 @@ def main(opt):
     suffix = suffix + '_{}_trial{}_batch{}'.format(opt.optim, opt.trial, opt.batch_size)
 
     log_dir = opt.log_path + '/' + suffix + '/'
+    train_samples = './train_result/' + suffix
+    
+    if not os.path.isdir(train_samples):
+        print(train_samples)
+        os.makedirs(train_samples)
 
     if not os.path.isdir(log_dir):
         print(log_dir)
@@ -91,10 +98,10 @@ def main(opt):
     #make model
     np_model = Trans_VIReID(opt).to(device)
 
-    '''
+    
     if os.path.exists(opt.checkpoint):
-        np_model.load_state_dict(torch.load('./checkpoint/start.pth'))
-    '''
+        np_model.load_state_dict(torch.load('./checkpoint/start_classifier_bottleneck.pth'))
+    
     model = nn.DataParallel(np_model, device_ids=[0, 1, 2, 3])
 
     dataloader = DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, sampler=sampler)
@@ -130,16 +137,9 @@ def main(opt):
         
 
         for idx, (rgb, ir, label) in enumerate(trainloader):
-            '''
-            trans_rgb = transform_corruption(rgb)
-            trans_ir = transform_corruption(ir)
-            trans_rgb = Variable(trans_rgb).to(device)
-            trans_ir = Variable(trans_ir).to(device)
-            '''
+    
             rgb = Variable(rgb).to(device)
             ir = Variable(ir).to(device)
-            
-            
             label = Variable(label).to(device)
             
 
@@ -177,17 +177,32 @@ def main(opt):
                     criterion_recon(out_disc[1], out_disc_hat[1]) + criterion_recon(out_excl[1], out_excl_hat[1])
                 
                 total_loss += 2 * (recon_loss + cross_recon_loss + cycle_recon_loss + code_recon_loss)
+                
+                '''
+                if i % 5 == 0 and idx == 0:
+                    for j in range(16):
+                        writer.add_image('rgb_{}'.format(i),invTrans(rgb[j]),j)
+                        writer.add_image('ir_{}'.format(i),invTrans(ir[j]),j)
+                        writer.add_image('re_rgb_{}'.format(i),invTrans(out_re[0][j]),j)
+                        writer.add_image('re_ir_{}'.format(i),invTrans(out_re[1][j]),j)
+                        writer.add_image('cross_rgb_{}'.format(i),invTrans(out_cross[0][j]),j)
+                        writer.add_image('cross_ir_{}'.format(i),invTrans(out_cross[1][j]),j)
+                        writer.add_image('cycle_rgb_{}'.format(i),invTrans(out_hat[0][j]),j)
+                        writer.add_image('cycle_ir_{}'.format(i),invTrans(out_hat[1][j]),j)
+                '''
             else:
                 recon_loss = 0
                 cross_recon_loss = 0
                 cycle_recon_loss = 0
                 code_recon_loss = 0
                 
-            #del out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id
+            
             
             optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
+
+            del out_disc, out_excl, out_feat, out_id, out_re, out_cross, out_disc_hat, out_excl_hat, out_hat, out_center, out_aware_id
 
             if opt.recon:                
                 loss_recon.update(recon_loss.item(), rgb.size(0)*2)
@@ -226,8 +241,9 @@ def main(opt):
         gall_feat = np.zeros((len(gallset),768))
         gall_feat_att = np.zeros((len(gallset),206))
         gall_label = np.zeros(len(gallset))
+        gall_names = []
         with torch.no_grad():
-            for idx, (img, label) in enumerate(gall_loader):
+            for idx, (img, label, img_name) in enumerate(gall_loader):
                 batch_num = img.size(0)
                 img = Variable(img).to(device)
                 feat, feat_att = np_model(img,img,modal=2)
@@ -240,8 +256,9 @@ def main(opt):
         query_feat = np.zeros((len(queryset), 768))
         query_feat_att = np.zeros((len(queryset), 206))
         query_label = np.zeros(len(queryset))
+        query_names = []
         with torch.no_grad():
-            for batch_idx, (input, label) in enumerate(query_loader):
+            for batch_idx, (input, label, img_name) in enumerate(query_loader):
                 batch_num = input.size(0)
                 input = Variable(input).to(device)
                 feat, feat_att = np_model(input, input, modal=1)
@@ -253,8 +270,8 @@ def main(opt):
         distmat = np.matmul(query_feat, np.transpose(gall_feat))
         distmat_att = np.matmul(query_feat_att, np.transpose(gall_feat_att))
 
-        cmc, mAP, mINP      = eval_regdb(-distmat, query_label, gall_label)
-        cmc_att, mAP_att, mINP_att  = eval_regdb(-distmat_att, query_label, gall_label)
+        cmc, mAP, mINP      = eval_regdb(-distmat, query_label, gall_label, query_names, gall_names)
+        cmc_att, mAP_att, mINP_att  = eval_regdb(-distmat_att, query_label, gall_label, query_names, gall_names)
 
         writer.add_scalar('rank1', cmc[0], i)
         writer.add_scalar('mAP', mAP, i)
@@ -262,16 +279,7 @@ def main(opt):
         writer.add_scalar('rank1_att', cmc_att[0], i)
         writer.add_scalar('mAP_att', mAP_att, i)
         writer.add_scalar('mINP_att', mINP_att, i)
-        if opt.recon and i % 5 == 0:
-            for j in range(16):
-                writer.add_image('rgb_{}'.format(i),invTrans(rgb[j]),j)
-                writer.add_image('ir_{}'.format(i),invTrans(ir[j]),j)
-                writer.add_image('re_rgb_{}'.format(i),invTrans(out_re[0][j]),j)
-                writer.add_image('re_ir_{}'.format(i),invTrans(out_re[1][j]),j)
-                writer.add_image('cross_rgb_{}'.format(i),invTrans(out_cross[0][j]),j)
-                writer.add_image('cross_ir_{}'.format(i),invTrans(out_cross[1][j]),j)
-                writer.add_image('cycle_rgb_{}'.format(i),invTrans(out_hat[0][j]),j)
-                writer.add_image('cycle_ir_{}'.format(i),invTrans(out_hat[1][j]),j)
+        
             
         print('rank1: {}'.format(cmc[0]))
         print('mAP: {}'.format(mAP))
@@ -279,6 +287,57 @@ def main(opt):
         print('rank1_att: {}'.format(cmc_att[0]))
         print('mAP_att: {}'.format(mAP_att))
         print('mINP_att: {}'.format(mINP_att))
+        
+        ## draw sample basic
+        
+        draw_sample_indices = [0,10,20,30,40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,200]
+    
+        test_images_display_g = torch.stack(
+            [gall_loader.dataset[draw_sample_indices[j]][0] for j in range(len(draw_sample_indices))]
+        )
+        test_images_display_q = torch.stack(
+            [query_loader.dataset[draw_sample_indices[j]][0] for j in range(len(draw_sample_indices))]
+        )
+    
+        num_images = test_images_display_g.size(0)
+        
+        gall_recon, query_recon, gall_crecon, query_crecon = [],[],[],[]
+    
+    
+        with torch.no_grad():
+            for j in range(num_images):
+                gall = test_images_display_g[j].unsqueeze(0).to(device)
+                query = test_images_display_q[j].unsqueeze(0).to(device)
+                
+                d_gall = np_model.disc_encoder(gall, modal=2, interpolate_pos_encoding=True).last_hidden_state
+                d_query = np_model.disc_encoder(query, modal=1, interpolate_pos_encoding=True).last_hidden_state
+                
+                i_gall = np_model.excl_encoder(gall, modal=2, interpolate_pos_encoding=True).last_hidden_state
+                i_query = np_model.excl_encoder(query, modal=1, interpolate_pos_encoding=True).last_hidden_state
+                
+                dg_ig = np_model.to_img(d_gall[:,1:] + i_gall[:,1:]).cpu()
+                dq_iq = np_model.to_img(d_query[:,1:] + i_query[:,1:]).cpu()
+                
+                dg_iq = np_model.to_img(d_gall[:,1:] + i_query[:,1:]).cpu()
+                dq_ig = np_model.to_img(d_query[:,1:] + i_gall[:,1:]).cpu()
+                
+                del d_gall, d_query, i_gall, i_query
+                
+                gall_recon.append(dg_ig)
+                query_recon.append(dq_iq)
+                gall_crecon.append(dq_ig)
+                query_crecon.append(dg_iq)
+        
+        gall_recon, query_recon = torch.cat(gall_recon), torch.cat(query_recon)
+        gall_crecon, query_crecon = torch.cat(gall_crecon), torch.cat(query_crecon)
+        
+        exp = test_images_display_g, gall_recon, gall_crecon, test_images_display_q, query_recon, query_crecon
+        
+        image_tensor = torch.cat([images for images in exp])
+        print(image_tensor.shape)
+        
+        image_grid = vutils.make_grid(image_tensor.data, num_images, padding=0, normalize=True, scale_each=True)
+        vutils.save_image(image_grid, '{}/sample_basic_{}epochs.png'.format(train_samples,i),1)
 
 
 
@@ -291,7 +350,7 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint',default='./checkpoint/')
     parser.add_argument('--epochs', default=70)
     parser.add_argument('--log_path', default='./runs/')
-    parser.add_argument('--trial',default=3,type=int)
+    parser.add_argument('--trial',default=6,type=int)
 
     parser.add_argument('--dim', default=768)
     parser.add_argument('--img_h', default=256, type=int)

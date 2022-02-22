@@ -163,8 +163,18 @@ def eval_regdb(distmat, q_pids, g_pids, query_names, gall_names, max_rank = 20):
         print("Note: number of gallery samples is quite small, got {}".format(num_g))
     indices = np.argsort(distmat, axis=1)
     matches = (g_pids[indices] == q_pids[:, np.newaxis]).astype(np.int32)
-    
-    
+    '''
+    with open('./test_result/recon/matches.csv', 'w') as f:
+        writer = csv.writer(f)
+        for q_idx in range(num_q):
+            q_name = query_names[q_idx]
+            rank5 = matches[q_idx][:5] # binary index
+            rank5_indices = indices[q_idx][:5]
+            rank5_gall_names = [gall_names[i] for i in rank5_indices]
+            rank5_gall_names.insert(0, q_name)
+            writer.writerow(rank5_gall_names)
+            writer.writerow(rank5)
+    '''
     
     # compute cmc curve for each query
     all_cmc = []

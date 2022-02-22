@@ -34,7 +34,7 @@ device = torch.device('cuda:0')
 
 
 model = Trans_VIReID(opt).to(device)
-torch.save(model.state_dict(), './checkpoint/start.pth')
+torch.save(model.state_dict(), './checkpoint/start_classifier_bottleneck.pth')
 
 '''
 #model.load_state_dict(torch.load('./checkpoint/start.pth'))
