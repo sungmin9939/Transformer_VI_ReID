@@ -51,7 +51,7 @@ def test(opt):
     model = Trans_VIReID(opt).to(device)
     model.eval()
     
-    model.load_state_dict(torch.load('./checkpoint/exp3_epoch60.pth'))
+    model.load_state_dict(torch.load('./checkpoint/exp6_epoch60.pth'))
         
     ptr = 0
     gall_feat = np.zeros((len(gallset), 768))
@@ -95,6 +95,8 @@ def test(opt):
 
     print('rank1: {}'.format(cmc[0]))
     print('rank5: {}'.format(cmc[4]))
+    print('rank10: {}'.format(cmc[9]))
+    print('rank20: {}'.format(cmc[19]))
     print('mAP: {}'.format(mAP))
     print('mINP: {}'.format(mINP))
     '''
@@ -117,10 +119,11 @@ def draw_sample_basic_ycbcr():
         
 
         gCbCr = np.zeros(gall.shape, dtype=np.uint8)
+
+        
         gCbCr[:,:,0] = gall[:,:,0]
         gCbCr[:,:,1] = query[:,:,1]
         gCbCr[:,:,2] = query[:,:,2]
-        
         
         img = Image.fromarray(gCbCr)
         img.save('./YCbCr/gcbcr{}.png'.format(idx))
@@ -154,7 +157,7 @@ def draw_sample_basic(opt):
     model = Trans_VIReID(opt).to(device)
     model.eval()
     
-    model.load_state_dict(torch.load('./checkpoint/exp3_epoch60.pth'))
+    model.load_state_dict(torch.load('./checkpoint/exp6_epoch60.pth'))
 
     '''
     gallset = TestData_dum('./datasets/RegDB_01/train_py','T', transform_test)
@@ -279,9 +282,9 @@ if __name__ == "__main__":
 
     opt = parser.parse_args()
     
-    draw_sample_basic_ycbcr()
+    #draw_sample_basic_ycbcr()
     #draw_sample_basic(opt)
-    #test(opt)
+    test(opt)
     #visualize()
     
     
