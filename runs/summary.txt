@@ -1,0 +1,8 @@
+RegDB_trial1_batch64_epoch500_version2 => recon True, id_loss 2, recon_loss 1
+RegDB_trial2_batch64_epoch500_version2 => recon False, id_loss 2, recon_loss 1
+RegDB_trial3_batch64_epoch500_version2 => recon True, id_loss 2, recon_loss 1
+RegDB_trial4_batch64_epoch500_version2 => recon False, id_loss 2, recon_loss 1
+RegDB_trial5_batch64_epoch500_version2 => recon True, id_loss 2, recon_loss 1
+RegDB_trial6_batch64_epoch500_version2 => recon True, id_loss 2, recon_loss 1 cross_loss 1
+RegDB_trial7_batch64_epoch500_version2 => recon True, id_loss 1, recon_loss 1 cross_loss 1
+RegDB_trial7_batch64_epoch500_version2 => recon False, id_loss 1, recon_loss 1 cross_loss 1

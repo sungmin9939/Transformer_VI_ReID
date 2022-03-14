@@ -35,9 +35,12 @@ device = torch.device('cuda:0')
 
 
 model = Trans_VIReID_v2(opt).to(device)
+torch.save(model.state_dict(), '/workspace/Transformer_VI_ReID/checkpoint/start_v2.pth')
 
-r_sample = torch.randn(1,3,256,128).to(device)
-i_sample = torch.randn(1,3,256,128).to(device)
+
+
+r_sample = torch.randn(32,3,256,128).to(device)
+i_sample = torch.randn(32,3,256,128).to(device)
 
 model(r_sample, i_sample)
 

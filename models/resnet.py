@@ -395,7 +395,7 @@ class ResidualDecoder(nn.Module):
         self.to_img_feature.apply(weights_init_kaiming)
 
     def forward(self, specific, shared):
-        print(specific.shape)
+
         specific = self.to_img_feature(specific)
         shared = self.to_img_feature(shared)
         

@@ -141,11 +141,13 @@ class Trans_VIReID_v2(nn.Module):
         self.classifier = ClassBlock(self.dim, self.num_classes)
         self.modality_knowledge = nn.Linear(1, self.dim)
 
+        self.visible_1x1.apply(weights_init_kaiming)
+        self.thermal_1x1.apply(weights_init_kaiming)
         self.classifier.apply(weights_init_classifier)
         self.batchnorm.apply(weights_init_kaiming)
         self.modality_knowledge.apply(weights_init_classifier)
 
-    def forward(self, x_rgb, x_ir, modal=0):
+    def forward(self, x_rgb, x_ir, modal=0, draw_test=False):
         if modal == 0:
 
             rgb_specific = self.visible_1x1(
@@ -156,30 +158,49 @@ class Trans_VIReID_v2(nn.Module):
             
             shared_rgb = self.shared_encoder(rgb_specific, modal=1, interpolate_pos_encoding=True, pass_embedding=True).last_hidden_state
             shared_ir = self.shared_encoder(ir_specific, modal=2, interpolate_pos_encoding=True, pass_embedding=True).last_hidden_state
-            print('transformer output: {}'.format(shared_ir.shape))
             
             rgb_recon = self.visible_decoder(rgb_specific, shared_rgb[:,1:])
             thermal_recon = self.thermal_decoder(ir_specific, shared_ir[:,1:])
             
-            print('recon output: {}'.format(rgb_recon.shape))
+            rgb_cross_recon = self.visible_decoder(rgb_specific, shared_ir[:,1:])
+            thermal_cross_recon = self.thermal_decoder(ir_specific, shared_rgb[:,1:])
+            
+            if draw_test:
+                return (rgb_recon, thermal_recon), (rgb_cross_recon, thermal_cross_recon)
+            
+            
+            rgb_id = self.classifier(shared_rgb[:,0])
+            ir_id = self.classifier(shared_ir[:,0])
+            
+            
+            return (rgb_specific, ir_specific),(shared_rgb, shared_ir), (rgb_id, ir_id), (rgb_recon, thermal_recon), (rgb_cross_recon, thermal_cross_recon)
             
 
             ###########################################################
 
-        elif modal == 1:
-            disc_rgb = self.disc_encoder(
-                pixel_values=x_rgb, modal=1, interpolate_pos_encoding=True).last_hidden_state
-            feat = disc_rgb[:, 0]
-            feat_att = self.classifier(self.batchnorm(disc_rgb)[:, 0])
+        elif modal == 1: ## RGB                
+            rgb_specific = self.visible_1x1(
+                self.visible(x_rgb)).flatten(2).transpose(1, 2)
+            shared_rgb = self.shared_encoder(rgb_specific, modal=1, interpolate_pos_encoding=True, pass_embedding=True).last_hidden_state
+            
+            
+            feat = shared_rgb[:,0]
+            feat_att = self.classifier(self.batchnorm(shared_rgb)[:,0])
+            
+            return feat, feat_att
+        elif modal == 2: ## IR
+            ir_specific = self.thermal_1x1(
+                self.thermal(x_ir)).flatten(2).transpose(1, 2)
+            shared_ir = self.shared_encoder(ir_specific, modal=2, interpolate_pos_encoding=True, pass_embedding=True).last_hidden_state
+            
+            
+            feat = shared_ir[:, 0]
+            feat_att = self.classifier(self.batchnorm(shared_ir)[:,0])
 
             return feat, feat_att
-        elif modal == 2:
-            disc_ir = self.disc_encoder(
-                pixel_values=x_ir, modal=2, interpolate_pos_encoding=True).last_hidden_state
-            feat = disc_ir[:, 0]
-            feat_att = self.classifier(self.batchnorm(disc_ir)[:, 0])
-
-            return feat, feat_att
+        
+            
+            
 
 
 class Trans_VIReID(nn.Module):
